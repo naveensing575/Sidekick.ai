@@ -1,8 +1,15 @@
 'use client'
 
-import { useState, forwardRef, useImperativeHandle, useRef, useEffect } from 'react'
+import {
+  useState,
+  forwardRef,
+  useImperativeHandle,
+  useRef,
+  useEffect,
+} from 'react'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
+import { Square , SendHorizonal } from 'lucide-react'
 
 interface InputBoxProps {
   onSubmit: (text: string) => void
@@ -40,7 +47,6 @@ const InputBox = forwardRef<HTMLTextAreaElement, InputBoxProps>(
       }, 0)
     }
 
-
     return (
       <div className="flex items-end gap-2 bg-gray-800 dark:bg-[#18181c] rounded-xl px-3 py-3 transition w-full max-w-3xl mx-auto shadow-sm">
         <Textarea
@@ -60,9 +66,10 @@ const InputBox = forwardRef<HTMLTextAreaElement, InputBoxProps>(
             type="button"
             onClick={onAbort}
             variant="ghost"
-            className="bg-black text-white hover:bg-neutral-800 px-4"
+            className="rounded-full p-2 bg-[#2c2c2e] hover:bg-[#3a3a3c]"
+            aria-label="Stop generating"
           >
-            Stop
+            <Square  className="w-4 h-4 text-white" />
           </Button>
         ) : (
           <Button
@@ -73,12 +80,7 @@ const InputBox = forwardRef<HTMLTextAreaElement, InputBoxProps>(
             className="rounded-full p-2"
             aria-label="Send"
           >
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-              <path
-                d="M3.94 16.44l12.02-6.02a.5.5 0 000-.9L3.94 3.5a.5.5 0 00-.72.6l1.56 6.42a.25.25 0 000 .12l-1.56 6.26a.5.5 0 00.72.54z"
-                fill="currentColor"
-              />
-            </svg>
+            <SendHorizonal className="w-4 h-4 text-white" />
           </Button>
         )}
       </div>
