@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import MessageList from './MessageList';
 import InputBox from './InputBox';
+import PresetSwitcher from './PresetSwitcher';
 
 export type Role = 'user' | 'assistant';
 export interface Message {
@@ -31,6 +32,7 @@ export default function ChatWindow() {
       <header className="px-4 py-2 border-b font-semibold">sidekick</header>
 
       <main ref={chatRef} className="flex-1 overflow-y-auto p-4 space-y-3">
+        <PresetSwitcher />
         <MessageList messages={messages} />
       </main>
 
