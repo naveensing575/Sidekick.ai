@@ -1,5 +1,8 @@
 'use client'
-import { useState, forwardRef, useImperativeHandle, useRef } from 'react'
+
+import { useState, forwardRef, useImperativeHandle, useRef, useEffect } from 'react'
+import { Textarea } from '@/components/ui/textarea'
+import { Button } from '@/components/ui/button'
 
 interface InputBoxProps {
   onSubmit: (text: string) => void
@@ -14,6 +17,13 @@ const InputBox = forwardRef<HTMLTextAreaElement, InputBoxProps>(
     const inputRef = useRef<HTMLTextAreaElement | null>(null)
     useImperativeHandle(ref, () => inputRef.current!)
 
+    useEffect(() => {
+      const el = inputRef.current
+      if (!el) return
+      el.style.height = 'auto'
+      el.style.height = `${el.scrollHeight}px`
+    }, [value])
+
     function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault()
@@ -25,52 +35,39 @@ const InputBox = forwardRef<HTMLTextAreaElement, InputBoxProps>(
       if (!value.trim()) return
       onSubmit(value)
       setValue('')
-      setTimeout(() => {
-        inputRef.current?.focus()
-      }, 0)
+      setTimeout(() => inputRef.current?.focus(), 0)
     }
 
     return (
-      <div className="
-        flex items-end gap-2 bg-white dark:bg-[#18181c] border border-gray-300 dark:border-gray-700 
-        rounded-xl px-3 py-2 transition w-full max-w-3xl mx-auto shadow-sm focus-within:ring-1 focus-within:ring-blue-400
-      ">
-        <textarea
+      <div className="flex items-end gap-2 bg-gray-800 dark:bg-[#18181c] rounded-xl px-3 py-3 transition w-full max-w-3xl mx-auto shadow-sm">
+        <Textarea
           ref={inputRef}
           value={value}
-          onChange={e => setValue(e.target.value)}
+          onChange={(e) => setValue(e.target.value)}
           onKeyDown={handleKeyDown}
-          rows={1}
           placeholder="Type a message…"
           disabled={disabled}
-          className="
-            resize-none w-full bg-transparent outline-none border-0 text-base
-            placeholder-gray-400 disabled:opacity-50 no-scrollbar
-            max-h-40 leading-relaxed"
-          style={{
-            minHeight: '2.5rem',
-            paddingRight: '2.5rem',
-          }}
+          rows={1}
+          className="resize-none bg-transparent text-base text-white placeholder-gray-400 disabled:opacity-50 no-scrollbar max-h-40"
+          style={{ minHeight: '2.5rem', paddingRight: '2.5rem' }}
         />
 
         {loading ? (
-          <button
+          <Button
             type="button"
             onClick={onAbort}
-            className="p-2 rounded-md bg-black text-white transition hover:bg-neutral-900"
-            aria-label="Stop response"
+            variant="ghost"
+            className="bg-black text-white hover:bg-neutral-800 px-4"
           >
             Stop
-          </button>
+          </Button>
         ) : (
-          <button
+          <Button
             type="button"
             onClick={submit}
             disabled={disabled || !value.trim()}
-            className="
-              p-2 rounded-full transition disabled:opacity-40 disabled:cursor-not-allowed
-              bg-blue-600 hover:bg-blue-700 text-white
-            "
+            variant="default"
+            className="rounded-full p-2"
             aria-label="Send"
           >
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -79,11 +76,12 @@ const InputBox = forwardRef<HTMLTextAreaElement, InputBoxProps>(
                 fill="currentColor"
               />
             </svg>
-          </button>
+          </Button>
         )}
       </div>
     )
   }
 )
+
 InputBox.displayName = 'InputBox'
 export default InputBox
