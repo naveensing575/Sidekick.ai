@@ -1,14 +1,15 @@
-import type { Role } from './ChatWindow';
-import { Markdown } from '@/utils/markdown';
+import React from 'react'
+import type { Role } from './ChatWindow'
+import { Markdown } from '@/utils/markdown'
 
 export default function MessageBubble({
   role,
   content,
 }: {
-  role: Role;
-  content: string;
+  role: Role
+  content: React.ReactNode
 }) {
-  const isUser = role === 'user';
+  const isUser = role === 'user'
 
   return (
     <div
@@ -17,14 +18,18 @@ export default function MessageBubble({
     >
       <div
         className={`
-          px-4 py-3 rounded-xl max-w-[80%] shadow-sm border
+          px-5 py-3 rounded-xl max-w-[90%] shadow-sm border
           ${isUser
             ? 'bg-gray-800 text-gray-100 border-gray-700'
             : 'bg-[#1e1e1e] text-gray-200 border-gray-700'}
         `}
       >
-        {isUser ? content : <Markdown content={content} />}
+        {isUser
+          ? content
+          : typeof content === 'string'
+          ? <Markdown content={content} />
+          : content}
       </div>
     </div>
-  );
+  )
 }

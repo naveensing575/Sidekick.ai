@@ -1,19 +1,24 @@
-// lib/ai.ts
+export type Role = 'system' | 'user' | 'assistant'
+
+export interface ChatAPIMessage {
+  role: Role
+  content: string
+}
+
 export async function streamChat(
-  messages: { role: 'user' | 'assistant'; content: string }[]
-): Promise<ReadableStreamDefaultReader<Uint8Array>> {
+messages: ChatAPIMessage[], signal: AbortSignal): Promise<ReadableStreamDefaultReader<Uint8Array>> {
   const res = await fetch('/api/chat', {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json', // ✅ Tell server it's JSON
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify({ messages }),
-    cache: 'no-store', // ✅ Avoid caching for streams
-  });
+    cache: 'no-store',
+  })
 
   if (!res.ok || !res.body) {
-    throw new Error(`AI stream error: ${res.status} ${res.statusText}`);
+    throw new Error(`AI stream error: ${res.status} ${res.statusText}`)
   }
 
-  return res.body.getReader();
+  return res.body.getReader()
 }

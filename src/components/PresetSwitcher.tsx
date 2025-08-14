@@ -1,19 +1,22 @@
 'use client';
 
-import { useState } from 'react';
+import React from 'react';
 
 const PRESETS = ['General', 'Code', 'Summarizer'] as const;
 type Preset = typeof PRESETS[number];
 
-export default function PresetSwitcher() {
-  const [active, setActive] = useState<Preset>('General');
+interface Props {
+  active: Preset;
+  onChange: (preset: Preset) => void;
+}
 
+export default function PresetSwitcher({ active, onChange }: Props) {
   return (
     <div className="flex gap-2 mb-3">
       {PRESETS.map((preset) => (
         <button
           key={preset}
-          onClick={() => setActive(preset)}
+          onClick={() => onChange(preset)}
           className={`px-3 py-1 rounded-full border text-sm transition
             ${active === preset
               ? 'bg-black text-white border-black dark:bg-white dark:text-black'
