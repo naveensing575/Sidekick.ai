@@ -1,4 +1,3 @@
-// src/app/viewport.ts
 import type { Viewport } from 'next'
 
 const viewport: Viewport = {

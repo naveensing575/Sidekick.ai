@@ -7,11 +7,11 @@ const inter = Inter({ subsets: ['latin'] })
 export const metadata: Metadata = {
   title: 'Sidekick',
   description: 'Your AI Sidekick for conversations, code, and productivity.',
-  manifest: '/manifest.json',
-  themeColor: '#000000',
+  manifest: '/manifest.webmanifest',
   icons: {
-    icon: '/icons/icon-192x192.png',
-    apple: '/icons/icon-512x512.png',
+    icon: '/icons/favicon-32x32.png',
+    shortcut: '/icons/favicon-16x16.png',
+    apple: '/icons/apple-touch-icon.png',
   },
 }
 
@@ -22,11 +22,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <head>
-        <link rel="manifest" href="/manifest.json" />
-        <meta name="theme-color" content="#000000" />
-        <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
-      </head>
+      <head />
       <body className={inter.className}>{children}</body>
     </html>
   )
