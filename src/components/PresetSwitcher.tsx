@@ -24,7 +24,7 @@ export default function PresetSwitcher({ active, onChange }: Props) {
             value={preset}
             className="px-4 py-1 text-sm rounded-full border border-gray-700
               data-[state=active]:bg-white data-[state=active]:text-black
-              text-white hover:text-gray-300"
+              text-white hover:text-gray-300 cursor-pointer"
           >
             {preset}
           </TabsTrigger>

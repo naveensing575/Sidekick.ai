@@ -27,16 +27,19 @@ const InputBox = forwardRef<HTMLTextAreaElement, InputBoxProps>(
     function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault()
-        submit()
+        if (!loading) submit()
       }
     }
 
     function submit() {
-      if (!value.trim()) return
+      if (!value.trim() || loading) return
       onSubmit(value)
       setValue('')
-      setTimeout(() => inputRef.current?.focus(), 0)
+      setTimeout(() => {
+        inputRef.current?.focus()
+      }, 0)
     }
+
 
     return (
       <div className="flex items-end gap-2 bg-gray-800 dark:bg-[#18181c] rounded-xl px-3 py-3 transition w-full max-w-3xl mx-auto shadow-sm">

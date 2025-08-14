@@ -1,5 +1,7 @@
 'use client'
-import { useState, useRef, useEffect } from 'react'
+import { useRef, useEffect, useState } from 'react'
+import { useLiveQuery } from 'dexie-react-hooks'
+import { db } from '@/lib/db'
 import MessageList from './MessageList'
 import InputBox from './InputBox'
 import PresetSwitcher from './PresetSwitcher'
@@ -20,26 +22,18 @@ const SYSTEM_PROMPTS: Record<string, string> = {
 }
 
 export default function ChatWindow() {
-  const [messages, setMessages] = useState<Message[]>([])
-  const [loading, setLoading] = useState(false)
   const [activePreset, setActivePreset] = useState<'General' | 'Code' | 'Summarizer'>('General')
+  const [loading, setLoading] = useState(false)
   const chatRef = useRef<HTMLDivElement | null>(null)
   const inputRef = useRef<HTMLTextAreaElement | null>(null)
   const controllerRef = useRef<AbortController | null>(null)
 
+  const storedSession = useLiveQuery(() => db.sessions.get(activePreset), [activePreset])
+  const messages = storedSession?.messages ?? []
+
   useEffect(() => {
     chatRef.current?.scrollTo({ top: chatRef.current.scrollHeight, behavior: 'smooth' })
   }, [messages, loading])
-
-  useEffect(() => {
-    const focusInput = () => inputRef.current?.focus()
-    focusInput()
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') focusInput()
-    }
-    document.addEventListener('visibilitychange', handleVisibility)
-    return () => document.removeEventListener('visibilitychange', handleVisibility)
-  }, [])
 
   async function handleSend(text: string) {
     if (!text.trim()) return
@@ -53,7 +47,8 @@ export default function ChatWindow() {
       role: 'assistant',
       content: '',
     }
-    setMessages((prev) => [...prev, userMessage])
+    const newMessages = [...messages, userMessage]
+    await db.sessions.put({ preset: activePreset, messages: newMessages })
     setLoading(true)
 
     const systemMessage: Message = {
@@ -68,11 +63,7 @@ export default function ChatWindow() {
 
     try {
       const reader = await streamChat(
-        [
-          systemMessage,
-          ...messages.filter((m) => m.role !== 'system').map(({ role, content }) => ({ role, content })),
-          { role: 'user', content: text.trim() },
-        ],
+        [systemMessage, ...newMessages.map(({ role, content }) => ({ role, content }))],
         controllerRef.current.signal
       )
 
@@ -98,26 +89,17 @@ export default function ChatWindow() {
             const delta = json?.choices?.[0]?.delta?.content
             if (delta) {
               fullContent += delta
-              setMessages((prev) => {
-                if (!prev.find((m) => m.id === assistantMessage.id)) {
-                  return [...prev, { ...assistantMessage, content: fullContent }]
-                }
-                return prev.map((msg) =>
-                  msg.id === assistantMessage.id
-                    ? { ...msg, content: fullContent }
-                    : msg
-                )
-              })
+              const updatedMessages = [...newMessages, { ...assistantMessage, content: fullContent }]
+              await db.sessions.put({ preset: activePreset, messages: updatedMessages })
             }
           } catch {}
         }
       }
-    } catch (err: any) {
-      if (err.name === 'AbortError') {
-        setMessages((prev) => [...prev, { ...assistantMessage, content: '[Response aborted]' }])
-      } else {
-        setMessages((prev) => [...prev, { ...assistantMessage, content: 'Something went wrong.' }])
-      }
+    } catch {
+      await db.sessions.put({
+        preset: activePreset,
+        messages: [...newMessages, { ...assistantMessage, content: 'Something went wrong.' }]
+      })
     } finally {
       setLoading(false)
       if (streamFinished) {
@@ -133,7 +115,7 @@ export default function ChatWindow() {
 
   return (
     <div className="flex flex-col h-screen bg-black text-white">
-      <header className="px-4 py-2 border-b font-semibold flex justify-between items-center bg-black">
+      <header className="px-4 py-2 border-b font-semibold flex justify-between items-center bg-black/50 backdrop-blur-md sticky top-0 z-10">
         <div className="text-white text-lg">sidekick</div>
       </header>
 
@@ -144,9 +126,9 @@ export default function ChatWindow() {
           <div className="flex items-start gap-2">
             <div className="bg-[#1c1c1e] text-white px-4 py-2 rounded-xl max-w-md animate-pulse">
               <div className="flex gap-1">
-                <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0s' }} />
-                <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.15s' }} />
-                <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.3s' }} />
+                <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce" />
+                <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce" />
+                <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce" />
               </div>
             </div>
           </div>
@@ -157,7 +139,7 @@ export default function ChatWindow() {
         <InputBox
           onSubmit={handleSend}
           onAbort={handleAbort}
-          disabled={false}
+          disabled={loading}
           loading={loading}
           ref={inputRef}
         />
