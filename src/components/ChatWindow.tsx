@@ -9,7 +9,6 @@ import InputBox from './InputBox'
 import { streamChat } from '@/lib/ai'
 import { SYSTEM_PROMPTS } from '@/utils/prompts'
 
-
 export type Role = 'system' | 'user' | 'assistant'
 
 export interface Message {
@@ -44,7 +43,6 @@ export default function ChatWindow() {
     return getMessages(activeChatId)
   }, [activeChatId]) ?? []
 
-  // Load chats
   useEffect(() => {
     const loadChats = async () => {
       const allChats = await db.chats.orderBy('updatedAt').reverse().toArray()
@@ -57,7 +55,29 @@ export default function ChatWindow() {
     loadChats()
   }, [activeChatId])
 
-  // Footer height tracking
+  // Auto-focus input when active chat changes
+  useEffect(() => {
+    inputRef.current?.focus()
+  }, [activeChatId])
+
+  // Detect typing when no chat is selected
+  useEffect(() => {
+    const handleKeyDown = async (e: KeyboardEvent) => {
+      if (!activeChatId && e.key.length === 1 && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault()
+        const newChat = await createChat('General')
+        await db.chats.update(newChat.id, { title: 'Untitled' })
+        const updatedChats = await db.chats.orderBy('updatedAt').reverse().toArray()
+        setChats(updatedChats)
+        setActiveChatId(newChat.id)
+        setActivePreset('General')
+        setTimeout(() => inputRef.current?.focus(), 0)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [activeChatId])
+
   useEffect(() => {
     if (!footerRef.current) return
     const observer = new ResizeObserver(([entry]) => {
@@ -67,7 +87,6 @@ export default function ChatWindow() {
     return () => observer.disconnect()
   }, [])
 
-  // Scroll to bottom
   useEffect(() => {
     if (chatRef.current) {
       chatRef.current.scrollTop = chatRef.current.scrollHeight
@@ -80,6 +99,7 @@ export default function ChatWindow() {
     setChats(allChats)
     setActiveChatId(chat.id)
     setActivePreset('General')
+    inputRef.current?.focus()
   }
 
   const handleDeleteChat = async (chatId: string) => {
@@ -90,6 +110,7 @@ export default function ChatWindow() {
     const nextChat = updatedChats[0]
     setActiveChatId(nextChat?.id || null)
     setActivePreset(nextChat?.preset || 'General')
+    inputRef.current?.focus()
   }
 
   const handleRenameChat = async (chatId: string) => {
@@ -102,54 +123,64 @@ export default function ChatWindow() {
   }
 
   const handleSend = async (text: string) => {
-    if (!text.trim() || !activeChatId) return
-    const userMessage: Message = { id: crypto.randomUUID(), role: 'user', content: text.trim() }
+  if (!text.trim() || !activeChatId) return
+  const userMessage: Message = { id: crypto.randomUUID(), role: 'user', content: text.trim() }
 
-    await addMessage(activeChatId, 'user', text)
-    setLoading(true)
+  await addMessage(activeChatId, 'user', text)
+  setLoading(true)
 
-    const systemMessage = {
-      id: 'system',
-      role: 'system' as Role,
-      content: SYSTEM_PROMPTS[activePreset],
-    }
+  const systemMessage = {
+    id: 'system',
+    role: 'system' as Role,
+    content: SYSTEM_PROMPTS[activePreset],
+  }
 
-    const existingMessages = await getMessages(activeChatId)
-    const chatMessages = [systemMessage, ...existingMessages, userMessage].map(({ role, content }) => ({
-      role,
-      content
-    }))
+  const existingMessages = await getMessages(activeChatId)
+  const chatMessages = [systemMessage, ...existingMessages, userMessage].map(({ role, content }) => ({
+    role,
+    content
+  }))
 
-    controllerRef.current?.abort()
-    controllerRef.current = new AbortController()
+  const controller = new AbortController()
+  controllerRef.current = controller
 
-    let fullResponse = ''
-    try {
-      const reader = await streamChat(chatMessages, controllerRef.current.signal)
-      const decoder = new TextDecoder()
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        const chunk = decoder.decode(value, { stream: true })
-        const lines = chunk.split('\n').filter(line => line.startsWith('data: '))
-        for (const line of lines) {
-          const data = line.slice(6).trim()
-          if (data === '[DONE]') break
-          const json = JSON.parse(data)
-          const delta = json.choices?.[0]?.delta?.content
-          if (delta) {
-            fullResponse += delta
-          }
+  let fullResponse = ''
+  try {
+    const reader = await streamChat(chatMessages, controller.signal)
+    const decoder = new TextDecoder()
+    while (true) {
+      if (controller.signal.aborted) break
+      const { done, value } = await reader.read()
+      if (done) break
+      const chunk = decoder.decode(value, { stream: true })
+      const lines = chunk.split('\n').filter(line => line.startsWith('data: '))
+      for (const line of lines) {
+        const data = line.slice(6).trim()
+        if (data === '[DONE]') break
+        const json = JSON.parse(data)
+        const delta = json.choices?.[0]?.delta?.content
+        if (delta) {
+          fullResponse += delta
         }
       }
-    } catch {
-      fullResponse = 'Something went wrong.'
-    } finally {
-      await addMessage(activeChatId, 'assistant', fullResponse)
-      setLoading(false)
-      setTimeout(() => inputRef.current?.focus(), 0)
     }
+  } catch (err) {
+    if (controller.signal.aborted) {
+      console.log('Stream aborted by user')
+    } else {
+      console.error(err)
+      fullResponse = 'Something went wrong.'
+    }
+  } finally {
+    if (fullResponse.trim()) {
+      await addMessage(activeChatId, 'assistant', fullResponse)
+    }
+    setLoading(false)
+    controllerRef.current = null
+    setTimeout(() => inputRef.current?.focus(), 0)
   }
+  }
+
 
   return (
     <div className="flex h-screen bg-[#1e1e1e] text-white">
@@ -167,12 +198,10 @@ export default function ChatWindow() {
       />
 
       <div className="flex flex-col flex-1">
-        {/* Header */}
         <div className="border-b border-gray-700 text-center py-2 font-semibold text-gray-400 text-sm">
           {chats.find(c => c.id === activeChatId)?.title || 'No Chat Selected'}
         </div>
 
-        {/* Chat area */}
         <main
           ref={chatRef}
           className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent"
@@ -190,16 +219,15 @@ export default function ChatWindow() {
           </div>
         </main>
 
-        {/* Footer input */}
         <div ref={footerRef} className="bg-[#1e1e1e] px-6 py-4">
           <div className="max-w-3xl mx-auto w-full">
             <InputBox
               onSubmit={handleSend}
               onAbort={() => controllerRef.current?.abort()}
-              disabled={loading}
               loading={loading}
               ref={inputRef}
             />
+
           </div>
         </div>
       </div>

@@ -13,13 +13,12 @@ import { Square, SendHorizonal } from 'lucide-react'
 
 interface InputBoxProps {
   onSubmit: (text: string) => void
-  disabled?: boolean
   loading: boolean
   onAbort?: () => void
 }
 
 const InputBox = forwardRef<HTMLTextAreaElement, InputBoxProps>(
-  ({ onSubmit, disabled, loading, onAbort }, ref) => {
+  ({ onSubmit, loading, onAbort }, ref) => {
     const [value, setValue] = useState('')
     const inputRef = useRef<HTMLTextAreaElement | null>(null)
     useImperativeHandle(ref, () => inputRef.current!)
@@ -31,6 +30,29 @@ const InputBox = forwardRef<HTMLTextAreaElement, InputBoxProps>(
       el.style.height = 'auto'
       el.style.height = `${el.scrollHeight}px`
     }, [value])
+
+    // Global typing focus
+    useEffect(() => {
+      const handleKeyDown = (e: KeyboardEvent) => {
+        const target = e.target as HTMLElement
+        if (
+          target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          e.metaKey ||
+          e.ctrlKey ||
+          e.altKey
+        ) {
+          return
+        }
+        if (e.key.length === 1) {
+          e.preventDefault()
+          inputRef.current?.focus()
+          setValue((prev) => prev + e.key)
+        }
+      }
+      window.addEventListener('keydown', handleKeyDown)
+      return () => window.removeEventListener('keydown', handleKeyDown)
+    }, [])
 
     function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
       if (e.key === 'Enter' && !e.shiftKey) {
@@ -56,9 +78,8 @@ const InputBox = forwardRef<HTMLTextAreaElement, InputBoxProps>(
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Type a message…"
-          disabled={disabled} // only disabled if globally disabled
           rows={1}
-          className="resize-none bg-transparent text-base text-white placeholder-gray-400 disabled:opacity-50 no-scrollbar max-h-40"
+          className="resize-none bg-transparent text-base text-white placeholder-gray-400 no-scrollbar max-h-40"
           style={{ minHeight: '2.5rem', paddingRight: '2.5rem' }}
         />
 
@@ -76,7 +97,7 @@ const InputBox = forwardRef<HTMLTextAreaElement, InputBoxProps>(
           <Button
             type="button"
             onClick={submit}
-            disabled={!value.trim()}
+            disabled={!value.trim() || loading} // disable when loading too
             variant="default"
             className="rounded-full p-2"
             aria-label="Send"
