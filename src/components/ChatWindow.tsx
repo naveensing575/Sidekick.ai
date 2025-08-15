@@ -1,13 +1,14 @@
 'use client'
 
-import { useRef, useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db } from '@/lib/db'
+import { db, createChat, addMessage, getMessages } from '@/lib/db'
+import Sidebar from './Sidebar'
 import MessageList from './MessageList'
 import InputBox from './InputBox'
-import Sidebar from './Sidebar'
 import { streamChat } from '@/lib/ai'
 import { SYSTEM_PROMPTS } from '@/utils/prompts'
+
 
 export type Role = 'system' | 'user' | 'assistant'
 
@@ -17,113 +18,161 @@ export interface Message {
   content: string
 }
 
+export type ChatType = {
+  id: string
+  preset: 'General' | 'Code' | 'Summarizer'
+  title: string
+  createdAt: number
+  updatedAt: number
+}
+
 export default function ChatWindow() {
-  const [activePreset, setActivePreset] = useState<'General' | 'Code' | 'Summarizer'>('General')
+  const [chats, setChats] = useState<ChatType[]>([])
+  const [activeChatId, setActiveChatId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [footerHeight, setFooterHeight] = useState(0)
+  const [activePreset, setActivePreset] = useState<'General' | 'Code' | 'Summarizer'>('General')
 
   const chatRef = useRef<HTMLDivElement | null>(null)
   const footerRef = useRef<HTMLDivElement | null>(null)
   const inputRef = useRef<HTMLTextAreaElement | null>(null)
   const controllerRef = useRef<AbortController | null>(null)
 
-  const storedSession = useLiveQuery(() => db.sessions.get(activePreset), [activePreset])
-  const messages = storedSession?.messages ?? []
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const messages = useLiveQuery(() => {
+    if (!activeChatId) return Promise.resolve([])
+    return getMessages(activeChatId)
+  }, [activeChatId]) ?? []
 
-  // Auto-scroll on message change or loading state
+  // Load chats
+  useEffect(() => {
+    const loadChats = async () => {
+      const allChats = await db.chats.orderBy('updatedAt').reverse().toArray()
+      setChats(allChats)
+      if (!activeChatId && allChats.length) {
+        setActiveChatId(allChats[0].id)
+        setActivePreset(allChats[0].preset)
+      }
+    }
+    loadChats()
+  }, [activeChatId])
+
+  // Footer height tracking
+  useEffect(() => {
+    if (!footerRef.current) return
+    const observer = new ResizeObserver(([entry]) => {
+      setFooterHeight(entry.contentRect.height)
+    })
+    observer.observe(footerRef.current)
+    return () => observer.disconnect()
+  }, [])
+
+  // Scroll to bottom
   useEffect(() => {
     if (chatRef.current) {
       chatRef.current.scrollTop = chatRef.current.scrollHeight
     }
   }, [messages, loading])
 
-  // Track footer height so chat area never hides messages behind footer
-  useEffect(() => {
-    if (!footerRef.current) return
-    const resizeObserver = new ResizeObserver(entries => {
-      for (const entry of entries) {
-        setFooterHeight(entry.contentRect.height)
-      }
-    })
-    resizeObserver.observe(footerRef.current)
-    return () => resizeObserver.disconnect()
-  }, [])
+  const handleNewChat = async () => {
+    const chat = await createChat('General')
+    const allChats = await db.chats.orderBy('updatedAt').reverse().toArray()
+    setChats(allChats)
+    setActiveChatId(chat.id)
+    setActivePreset('General')
+  }
 
-  async function handleSend(text: string) {
-    if (!text.trim()) return
+  const handleDeleteChat = async (chatId: string) => {
+    await db.messages.where('chatId').equals(chatId).delete()
+    await db.chats.delete(chatId)
+    const updatedChats = await db.chats.orderBy('updatedAt').reverse().toArray()
+    setChats(updatedChats)
+    const nextChat = updatedChats[0]
+    setActiveChatId(nextChat?.id || null)
+    setActivePreset(nextChat?.preset || 'General')
+  }
 
+  const handleRenameChat = async (chatId: string) => {
+    const newTitle = prompt('Enter new title')
+    if (newTitle) {
+      await db.chats.update(chatId, { title: newTitle, updatedAt: Date.now() })
+      const updated = await db.chats.orderBy('updatedAt').reverse().toArray()
+      setChats(updated)
+    }
+  }
+
+  const handleSend = async (text: string) => {
+    if (!text.trim() || !activeChatId) return
     const userMessage: Message = { id: crypto.randomUUID(), role: 'user', content: text.trim() }
-    const assistantMessage: Message = { id: crypto.randomUUID(), role: 'assistant', content: '' }
-    const newMessages = [...messages, userMessage]
 
-    await db.sessions.put({ preset: activePreset, messages: newMessages })
+    await addMessage(activeChatId, 'user', text)
     setLoading(true)
 
-    const systemMessage: Message = {
-      id: 'system-prompt',
-      role: 'system',
-      content: SYSTEM_PROMPTS[activePreset] ?? SYSTEM_PROMPTS.General,
+    const systemMessage = {
+      id: 'system',
+      role: 'system' as Role,
+      content: SYSTEM_PROMPTS[activePreset],
     }
+
+    const existingMessages = await getMessages(activeChatId)
+    const chatMessages = [systemMessage, ...existingMessages, userMessage].map(({ role, content }) => ({
+      role,
+      content
+    }))
 
     controllerRef.current?.abort()
     controllerRef.current = new AbortController()
-    let streamFinished = false
 
+    let fullResponse = ''
     try {
-      const reader = await streamChat(
-        [systemMessage, ...newMessages.map(({ role, content }) => ({ role, content }))],
-        controllerRef.current.signal
-      )
-
+      const reader = await streamChat(chatMessages, controllerRef.current.signal)
       const decoder = new TextDecoder()
-      let fullContent = ''
       while (true) {
         const { done, value } = await reader.read()
-        if (done) {
-          streamFinished = true
-          break
-        }
+        if (done) break
         const chunk = decoder.decode(value, { stream: true })
         const lines = chunk.split('\n').filter(line => line.startsWith('data: '))
         for (const line of lines) {
           const data = line.slice(6).trim()
-          if (data === '[DONE]') {
-            streamFinished = true
-            break
+          if (data === '[DONE]') break
+          const json = JSON.parse(data)
+          const delta = json.choices?.[0]?.delta?.content
+          if (delta) {
+            fullResponse += delta
           }
-          try {
-            const json = JSON.parse(data)
-            const delta = json?.choices?.[0]?.delta?.content
-            if (delta) {
-              fullContent += delta
-              const updatedMessages = [...newMessages, { ...assistantMessage, content: fullContent }]
-              await db.sessions.put({ preset: activePreset, messages: updatedMessages })
-            }
-          } catch {}
         }
       }
     } catch {
-      await db.sessions.put({
-        preset: activePreset,
-        messages: [...newMessages, { ...assistantMessage, content: 'Something went wrong.' }]
-      })
+      fullResponse = 'Something went wrong.'
     } finally {
+      await addMessage(activeChatId, 'assistant', fullResponse)
       setLoading(false)
-      if (streamFinished) setTimeout(() => inputRef.current?.focus(), 0)
-      controllerRef.current = null
+      setTimeout(() => inputRef.current?.focus(), 0)
     }
-  }
-
-  function handleAbort() {
-    controllerRef.current?.abort()
   }
 
   return (
     <div className="flex h-screen bg-[#1e1e1e] text-white">
-      <Sidebar chats={[]} activeChatId={''} onNewChat={() => {}} onSelectChat={() => {}} />
+      <Sidebar
+        chats={chats}
+        activeChatId={activeChatId}
+        onNewChat={handleNewChat}
+        onSelectChat={(id) => {
+          setActiveChatId(id)
+          const chat = chats.find(c => c.id === id)
+          if (chat) setActivePreset(chat.preset)
+        }}
+        onDeleteChat={handleDeleteChat}
+        onRenameChat={handleRenameChat}
+      />
 
       <div className="flex flex-col flex-1">
-        {/* Chat area with scrollbar always far right */}
+        {/* Header */}
+        <div className="border-b border-gray-700 text-center py-2 font-semibold text-gray-400 text-sm">
+          {chats.find(c => c.id === activeChatId)?.title || 'No Chat Selected'}
+        </div>
+
+        {/* Chat area */}
         <main
           ref={chatRef}
           className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent"
@@ -141,12 +190,12 @@ export default function ChatWindow() {
           </div>
         </main>
 
-        {/* Footer aligned to chat width */}
+        {/* Footer input */}
         <div ref={footerRef} className="bg-[#1e1e1e] px-6 py-4">
           <div className="max-w-3xl mx-auto w-full">
             <InputBox
               onSubmit={handleSend}
-              onAbort={handleAbort}
+              onAbort={() => controllerRef.current?.abort()}
               disabled={loading}
               loading={loading}
               ref={inputRef}

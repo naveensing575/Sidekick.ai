@@ -60,6 +60,7 @@ class SidekickDB extends Dexie {
 
 export const db = new SidekickDB()
 
+// CRUD Utils
 export async function createChat(preset: Chat['preset']) {
   const id = crypto.randomUUID()
   const chat: Chat = {
@@ -71,6 +72,23 @@ export async function createChat(preset: Chat['preset']) {
   }
   await db.chats.add(chat)
   return chat
+}
+
+export async function getChat(id: string) {
+  return db.chats.get(id)
+}
+
+export async function getAllChats() {
+  return db.chats.orderBy('updatedAt').reverse().toArray()
+}
+
+export async function updateChatTitle(id: string, newTitle: string) {
+  await db.chats.update(id, { title: newTitle, updatedAt: Date.now() })
+}
+
+export async function deleteChat(id: string) {
+  await db.messages.where('chatId').equals(id).delete()
+  await db.chats.delete(id)
 }
 
 export async function getMessages(chatId: string) {
