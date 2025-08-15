@@ -17,7 +17,8 @@ export default function MessageBubble({
     <div className={cn('w-full flex', isUser ? 'justify-end' : 'justify-start')}>
       <div
         className={cn(
-          'max-w-3xl px-4 py-2 rounded-2xl text-sm whitespace-pre-wrap backdrop-blur-md',
+          'max-w-3xl px-4 py-2 rounded-2xl text-sm backdrop-blur-md',
+          'whitespace-pre-wrap break-words break-all',
           isUser
             ? 'bg-white text-black dark:bg-white/90'
             : 'bg-gray-800/60 text-white dark:bg-gray-700/40'

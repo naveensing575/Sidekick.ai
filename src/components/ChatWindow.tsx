@@ -5,8 +5,9 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '@/lib/db'
 import MessageList from './MessageList'
 import InputBox from './InputBox'
-import PresetSwitcher from './PresetSwitcher'
+import Sidebar from './Sidebar'
 import { streamChat } from '@/lib/ai'
+import { SYSTEM_PROMPTS } from '@/utils/prompts'
 
 export type Role = 'system' | 'user' | 'assistant'
 
@@ -16,50 +17,45 @@ export interface Message {
   content: string
 }
 
-const SYSTEM_PROMPTS: Record<string, string> = {
-  General: 'You are a helpful assistant.',
-  Code: 'You are a helpful coding assistant. Provide detailed explanations and code examples.',
-  Summarizer: 'You are a summarization assistant. Provide concise summaries of any given text.',
-}
-
 export default function ChatWindow() {
   const [activePreset, setActivePreset] = useState<'General' | 'Code' | 'Summarizer'>('General')
   const [loading, setLoading] = useState(false)
-  const [scrolled, setScrolled] = useState(false)
+  const [footerHeight, setFooterHeight] = useState(0)
 
   const chatRef = useRef<HTMLDivElement | null>(null)
+  const footerRef = useRef<HTMLDivElement | null>(null)
   const inputRef = useRef<HTMLTextAreaElement | null>(null)
   const controllerRef = useRef<AbortController | null>(null)
 
   const storedSession = useLiveQuery(() => db.sessions.get(activePreset), [activePreset])
   const messages = storedSession?.messages ?? []
 
+  // Auto-scroll on message change or loading state
   useEffect(() => {
-    chatRef.current?.scrollTo({ top: chatRef.current.scrollHeight, behavior: 'smooth' })
+    if (chatRef.current) {
+      chatRef.current.scrollTop = chatRef.current.scrollHeight
+    }
   }, [messages, loading])
 
+  // Track footer height so chat area never hides messages behind footer
   useEffect(() => {
-    const handleScroll = () => {
-      setScrolled(window.scrollY > 20)
-    }
-
-    window.addEventListener('scroll', handleScroll)
-    return () => window.removeEventListener('scroll', handleScroll)
+    if (!footerRef.current) return
+    const resizeObserver = new ResizeObserver(entries => {
+      for (const entry of entries) {
+        setFooterHeight(entry.contentRect.height)
+      }
+    })
+    resizeObserver.observe(footerRef.current)
+    return () => resizeObserver.disconnect()
   }, [])
 
   async function handleSend(text: string) {
     if (!text.trim()) return
-    const userMessage: Message = {
-      id: crypto.randomUUID(),
-      role: 'user',
-      content: text.trim(),
-    }
-    const assistantMessage: Message = {
-      id: crypto.randomUUID(),
-      role: 'assistant',
-      content: '',
-    }
+
+    const userMessage: Message = { id: crypto.randomUUID(), role: 'user', content: text.trim() }
+    const assistantMessage: Message = { id: crypto.randomUUID(), role: 'assistant', content: '' }
     const newMessages = [...messages, userMessage]
+
     await db.sessions.put({ preset: activePreset, messages: newMessages })
     setLoading(true)
 
@@ -87,7 +83,6 @@ export default function ChatWindow() {
           streamFinished = true
           break
         }
-
         const chunk = decoder.decode(value, { stream: true })
         const lines = chunk.split('\n').filter(line => line.startsWith('data: '))
         for (const line of lines) {
@@ -114,9 +109,7 @@ export default function ChatWindow() {
       })
     } finally {
       setLoading(false)
-      if (streamFinished) {
-        setTimeout(() => inputRef.current?.focus(), 0)
-      }
+      if (streamFinished) setTimeout(() => inputRef.current?.focus(), 0)
       controllerRef.current = null
     }
   }
@@ -126,45 +119,41 @@ export default function ChatWindow() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-black text-white">
-      <header className="px-4 py-2 font-semibold flex justify-between items-center bg-black">
-        <div className="text-white text-lg">sidekick</div>
-      </header>
+    <div className="flex h-screen bg-[#1e1e1e] text-white">
+      <Sidebar chats={[]} activeChatId={''} onNewChat={() => {}} onSelectChat={() => {}} />
 
-      {/* Sticky Tabs PresetSwitcher */}
-      <div
-        className={`sticky top-0 z-20 px-4 py-3 backdrop-blur-md transition-all duration-300 ${
-          scrolled ? 'bg-black/80 shadow-md' : 'bg-black/50'
-        }`}
-      >
-        <PresetSwitcher active={activePreset} onChange={setActivePreset} />
-      </div>
-
-      <main ref={chatRef} className="flex-1 overflow-y-auto px-4 pt-4 pb-28 space-y-3">
-        <MessageList messages={messages} />
-        {loading && (
-          <div className="flex items-start gap-2">
-            <div className="bg-[#1c1c1e] text-white px-4 py-2 rounded-xl max-w-md animate-pulse">
-              <div className="flex gap-1">
+      <div className="flex flex-col flex-1">
+        {/* Chat area with scrollbar always far right */}
+        <main
+          ref={chatRef}
+          className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent"
+          style={{ paddingBottom: `${footerHeight}px` }}
+        >
+          <div className="max-w-3xl mx-auto w-full px-4 pt-4 space-y-3">
+            <MessageList messages={messages} />
+            {loading && (
+              <div className="flex gap-1 px-2">
                 <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce" />
                 <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce" />
                 <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce" />
               </div>
-            </div>
+            )}
           </div>
-        )}
-      </main>
+        </main>
 
-      {/* Input box */}
-      <footer className="fixed bottom-0 left-0 w-full border-t bg-black p-4">
-        <InputBox
-          onSubmit={handleSend}
-          onAbort={handleAbort}
-          disabled={loading}
-          loading={loading}
-          ref={inputRef}
-        />
-      </footer>
+        {/* Footer aligned to chat width */}
+        <div ref={footerRef} className="bg-[#1e1e1e] px-6 py-4">
+          <div className="max-w-3xl mx-auto w-full">
+            <InputBox
+              onSubmit={handleSend}
+              onAbort={handleAbort}
+              disabled={loading}
+              loading={loading}
+              ref={inputRef}
+            />
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

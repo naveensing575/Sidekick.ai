@@ -9,7 +9,7 @@ import {
 } from 'react'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
-import { Square , SendHorizonal } from 'lucide-react'
+import { Square, SendHorizonal } from 'lucide-react'
 
 interface InputBoxProps {
   onSubmit: (text: string) => void
@@ -24,6 +24,7 @@ const InputBox = forwardRef<HTMLTextAreaElement, InputBoxProps>(
     const inputRef = useRef<HTMLTextAreaElement | null>(null)
     useImperativeHandle(ref, () => inputRef.current!)
 
+    // Auto-grow textarea
     useEffect(() => {
       const el = inputRef.current
       if (!el) return
@@ -48,14 +49,14 @@ const InputBox = forwardRef<HTMLTextAreaElement, InputBoxProps>(
     }
 
     return (
-      <div className="flex items-end gap-2 bg-gray-800 dark:bg-[#18181c] rounded-xl px-3 py-3 transition w-full max-w-3xl mx-auto shadow-sm">
+      <div className="flex items-end gap-2 bg-gray-800 dark:bg-[#18181c] rounded-xl px-3 py-3 transition w-full shadow-sm">
         <Textarea
           ref={inputRef}
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Type a message…"
-          disabled={disabled}
+          disabled={disabled} // only disabled if globally disabled
           rows={1}
           className="resize-none bg-transparent text-base text-white placeholder-gray-400 disabled:opacity-50 no-scrollbar max-h-40"
           style={{ minHeight: '2.5rem', paddingRight: '2.5rem' }}
@@ -69,13 +70,13 @@ const InputBox = forwardRef<HTMLTextAreaElement, InputBoxProps>(
             className="rounded-full p-2 bg-[#2c2c2e] hover:bg-[#3a3a3c]"
             aria-label="Stop generating"
           >
-            <Square  className="w-4 h-4 text-white" />
+            <Square className="w-4 h-4 text-white" />
           </Button>
         ) : (
           <Button
             type="button"
             onClick={submit}
-            disabled={disabled || !value.trim()}
+            disabled={!value.trim()}
             variant="default"
             className="rounded-full p-2"
             aria-label="Send"
