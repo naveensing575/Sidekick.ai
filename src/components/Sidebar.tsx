@@ -70,7 +70,7 @@ export default function Sidebar({
         <Button
           onClick={onNewChat}
           variant="secondary"
-          className="w-full justify-start gap-2 bg-[#2a2a2d] hover:bg-[#343437]"
+          className="w-full justify-start gap-2 text-slate-50 bg-[#2a2a2d] hover:bg-[#343437]"
         >
           <Plus className="w-4 h-4" />
           {isOpen && 'New Chat'}
@@ -122,9 +122,9 @@ export default function Sidebar({
       <div className="p-3 border-t border-gray-700">
         <Button
           variant="ghost"
-          className="w-full justify-start gap-2 text-gray-400 hover:text-white"
+          className="w-full justify-start gap-2 text-gray-400 hover:bg-slate-300"
         >
-          <Settings className="w-4 h-4" />
+          <Settings className="w-4 h-4 " />
           {isOpen && 'Settings'}
         </Button>
       </div>
