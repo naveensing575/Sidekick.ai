@@ -18,7 +18,7 @@ interface SidebarProps {
   onNewChat: () => void
   onSelectChat: (id: string) => void
   onDeleteChat: (id: string) => void
-  onRenameChat: (id: string) => void
+  onRenameChat: (id: string, newTitle: string) => void
 }
 
 export default function Sidebar({
@@ -30,6 +30,21 @@ export default function Sidebar({
   onRenameChat,
 }: SidebarProps) {
   const [isOpen, setIsOpen] = useState(true)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editValue, setEditValue] = useState('')
+
+  const startEditing = (chatId: string, currentTitle: string) => {
+    setEditingId(chatId)
+    setEditValue(currentTitle)
+  }
+
+  const saveEdit = (chatId: string) => {
+    if (editValue.trim()) {
+      onRenameChat(chatId, editValue.trim())
+    }
+    setEditingId(null)
+    setEditValue('')
+  }
 
   return (
     <aside
@@ -52,7 +67,6 @@ export default function Sidebar({
         <button
           onClick={() => setIsOpen(!isOpen)}
           className="flex items-center justify-center w-8 h-8 rounded-full bg-[#2a2a2d] hover:bg-[#3a3a3d] transition-colors duration-300"
-          title={isOpen ? 'Collapse' : 'Expand'}
         >
           <span
             className={cn(
@@ -88,18 +102,45 @@ export default function Sidebar({
                   className={cn(
                     'w-full justify-start gap-2 text-left',
                     chat.id === activeChatId
-                      ? 'bg-slate-300 text-black hover:bg-slate-600'
+                      ? 'bg-slate-600 text-white hover:bg-slate-700'
                       : 'hover:bg-[#2a2a2d]'
                   )}
-                  onClick={() => onSelectChat(chat.id)}
+                  onClick={() => {
+                    if (editingId !== chat.id) {
+                      onSelectChat(chat.id)
+                    }
+                  }}
                 >
                   <MessageSquare className="w-4 h-4" />
-                  {isOpen && chat.title}
+                  {isOpen &&
+                    (editingId === chat.id ? (
+                      <input
+                        value={editValue}
+                        onChange={(e) => {
+                          if (e.target.value.length <= 10) {
+                            setEditValue(e.target.value)
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          e.stopPropagation()
+                          if (e.key === 'Enter') saveEdit(chat.id)
+                          if (e.key === 'Escape') {
+                            setEditingId(null)
+                            setEditValue('')
+                          }
+                        }}
+                        autoFocus
+                        className="bg-transparent text-white outline-none flex-1 px-1"
+                      />
+
+                    ) : (
+                      chat.title
+                    ))}
                 </Button>
               </ContextMenuTrigger>
 
               <ContextMenuContent>
-                <ContextMenuItem onClick={() => onRenameChat(chat.id)}>
+                <ContextMenuItem onClick={() => startEditing(chat.id, chat.title)}>
                   <Pencil className="w-4 h-4 mr-2" /> Rename
                 </ContextMenuItem>
                 <ContextMenuItem
@@ -124,7 +165,7 @@ export default function Sidebar({
           variant="ghost"
           className="w-full justify-start gap-2 text-gray-400 hover:bg-slate-300"
         >
-          <Settings className="w-4 h-4 " />
+          <Settings className="w-4 h-4" />
           {isOpen && 'Settings'}
         </Button>
       </div>

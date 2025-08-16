@@ -43,6 +43,22 @@ export default function ChatWindow() {
     return getMessages(activeChatId)
   }, [activeChatId]) ?? []
 
+  // Load last active chat from localStorage
+  useEffect(() => {
+    const savedChatId = localStorage.getItem('activeChatId')
+    if (savedChatId) {
+      setActiveChatId(savedChatId)
+    }
+  }, [])
+
+  // Save active chatId to localStorage
+  useEffect(() => {
+    if (activeChatId) {
+      localStorage.setItem('activeChatId', activeChatId)
+    }
+  }, [activeChatId])
+
+  // Load chats
   useEffect(() => {
     const loadChats = async () => {
       const allChats = await db.chats.orderBy('updatedAt').reverse().toArray()
@@ -55,12 +71,12 @@ export default function ChatWindow() {
     loadChats()
   }, [activeChatId])
 
-  // Auto-focus input when active chat changes
+  // Auto-focus input when chat changes
   useEffect(() => {
     inputRef.current?.focus()
   }, [activeChatId])
 
-  // Detect typing when no chat is selected
+  // Start new chat on keypress if none selected
   useEffect(() => {
     const handleKeyDown = async (e: KeyboardEvent) => {
       if (!activeChatId && e.key.length === 1 && !e.metaKey && !e.ctrlKey) {
@@ -78,6 +94,7 @@ export default function ChatWindow() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [activeChatId])
 
+  // Adjust footer height
   useEffect(() => {
     if (!footerRef.current) return
     const observer = new ResizeObserver(([entry]) => {
@@ -87,6 +104,7 @@ export default function ChatWindow() {
     return () => observer.disconnect()
   }, [])
 
+  // Scroll to bottom when messages change
   useEffect(() => {
     if (chatRef.current) {
       chatRef.current.scrollTop = chatRef.current.scrollHeight
@@ -123,64 +141,60 @@ export default function ChatWindow() {
   }
 
   const handleSend = async (text: string) => {
-  if (!text.trim() || !activeChatId) return
-  const userMessage: Message = { id: crypto.randomUUID(), role: 'user', content: text.trim() }
+    if (!text.trim() || !activeChatId) return
+    const userMessage: Message = { id: crypto.randomUUID(), role: 'user', content: text.trim() }
 
-  await addMessage(activeChatId, 'user', text)
-  setLoading(true)
+    await addMessage(activeChatId, 'user', text)
+    setLoading(true)
 
-  const systemMessage = {
-    id: 'system',
-    role: 'system' as Role,
-    content: SYSTEM_PROMPTS[activePreset],
-  }
+    const systemMessage = {
+      id: 'system',
+      role: 'system' as Role,
+      content: SYSTEM_PROMPTS[activePreset],
+    }
 
-  const existingMessages = await getMessages(activeChatId)
-  const chatMessages = [systemMessage, ...existingMessages, userMessage].map(({ role, content }) => ({
-    role,
-    content
-  }))
+    const existingMessages = await getMessages(activeChatId)
+    const chatMessages = [systemMessage, ...existingMessages, userMessage].map(({ role, content }) => ({ role, content }))
 
-  const controller = new AbortController()
-  controllerRef.current = controller
+    const controller = new AbortController()
+    controllerRef.current = controller
 
-  let fullResponse = ''
-  try {
-    const reader = await streamChat(chatMessages, controller.signal)
-    const decoder = new TextDecoder()
-    while (true) {
-      if (controller.signal.aborted) break
-      const { done, value } = await reader.read()
-      if (done) break
-      const chunk = decoder.decode(value, { stream: true })
-      const lines = chunk.split('\n').filter(line => line.startsWith('data: '))
-      for (const line of lines) {
-        const data = line.slice(6).trim()
-        if (data === '[DONE]') break
-        const json = JSON.parse(data)
-        const delta = json.choices?.[0]?.delta?.content
-        if (delta) {
-          fullResponse += delta
+    let fullResponse = ''
+    try {
+      const reader = await streamChat(chatMessages, controller.signal)
+      const decoder = new TextDecoder()
+      while (true) {
+        if (controller.signal.aborted) break
+        const { done, value } = await reader.read()
+        if (done) break
+        const chunk = decoder.decode(value, { stream: true })
+        const lines = chunk.split('\n').filter(line => line.startsWith('data: '))
+        for (const line of lines) {
+          const data = line.slice(6).trim()
+          if (data === '[DONE]') break
+          const json = JSON.parse(data)
+          const delta = json.choices?.[0]?.delta?.content
+          if (delta) {
+            fullResponse += delta
+          }
         }
       }
+    } catch (err) {
+      if (controller.signal.aborted) {
+        console.log('Stream aborted by user')
+      } else {
+        console.error(err)
+        fullResponse = 'Something went wrong.'
+      }
+    } finally {
+      if (fullResponse.trim()) {
+        await addMessage(activeChatId, 'assistant', fullResponse)
+      }
+      setLoading(false)
+      controllerRef.current = null
+      setTimeout(() => inputRef.current?.focus(), 0)
     }
-  } catch (err) {
-    if (controller.signal.aborted) {
-      console.log('Stream aborted by user')
-    } else {
-      console.error(err)
-      fullResponse = 'Something went wrong.'
-    }
-  } finally {
-    if (fullResponse.trim()) {
-      await addMessage(activeChatId, 'assistant', fullResponse)
-    }
-    setLoading(false)
-    controllerRef.current = null
-    setTimeout(() => inputRef.current?.focus(), 0)
   }
-  }
-
 
   return (
     <div className="flex h-screen bg-[#1e1e1e] text-white">
@@ -227,7 +241,6 @@ export default function ChatWindow() {
               loading={loading}
               ref={inputRef}
             />
-
           </div>
         </div>
       </div>
