@@ -7,7 +7,6 @@ import Sidebar from './Sidebar'
 import MessageList from './MessageList'
 import InputBox from './InputBox'
 import { streamChat } from '@/lib/ai'
-import { SYSTEM_PROMPTS } from '@/utils/prompts'
 
 export type Role = 'system' | 'user' | 'assistant'
 
@@ -19,10 +18,22 @@ export interface Message {
 
 export type ChatType = {
   id: string
-  preset: 'General' | 'Code' | 'Summarizer'
   title: string
   createdAt: number
   updatedAt: number
+}
+
+const DEFAULT_SYSTEM_PROMPT = `
+You are Sidekick, a helpful AI assistant.
+- Always provide correct, accurate, and up-to-date information.
+- Keep responses clear and concise.
+- Use a professional tone.
+- Avoid repetitive or excessive emojis (use at most one if necessary).
+`
+
+function sanitizeResponse(text: string) {
+  // collapse repeated emojis (3+ same in a row → 1)
+  return text.replace(/(\p{Emoji_Presentation}|\p{Emoji}\uFE0F){3,}/gu, match => match[0])
 }
 
 export default function ChatWindow() {
@@ -30,20 +41,17 @@ export default function ChatWindow() {
   const [activeChatId, setActiveChatId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [footerHeight, setFooterHeight] = useState(0)
-  const [activePreset, setActivePreset] = useState<'General' | 'Code' | 'Summarizer'>('General')
 
   const chatRef = useRef<HTMLDivElement | null>(null)
   const footerRef = useRef<HTMLDivElement | null>(null)
   const inputRef = useRef<HTMLTextAreaElement | null>(null)
   const controllerRef = useRef<AbortController | null>(null)
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   const messages = useLiveQuery(() => {
     if (!activeChatId) return Promise.resolve([])
     return getMessages(activeChatId)
   }, [activeChatId]) ?? []
 
-  // Load last active chat from localStorage
   useEffect(() => {
     const savedChatId = localStorage.getItem('activeChatId')
     if (savedChatId) {
@@ -51,42 +59,36 @@ export default function ChatWindow() {
     }
   }, [])
 
-  // Save active chatId to localStorage
   useEffect(() => {
     if (activeChatId) {
       localStorage.setItem('activeChatId', activeChatId)
     }
   }, [activeChatId])
 
-  // Load chats
   useEffect(() => {
     const loadChats = async () => {
       const allChats = await db.chats.orderBy('updatedAt').reverse().toArray()
       setChats(allChats)
       if (!activeChatId && allChats.length) {
         setActiveChatId(allChats[0].id)
-        setActivePreset(allChats[0].preset)
       }
     }
     loadChats()
   }, [activeChatId])
 
-  // Auto-focus input when chat changes
   useEffect(() => {
     inputRef.current?.focus()
   }, [activeChatId])
 
-  // Start new chat on keypress if none selected
   useEffect(() => {
     const handleKeyDown = async (e: KeyboardEvent) => {
       if (!activeChatId && e.key.length === 1 && !e.metaKey && !e.ctrlKey) {
         e.preventDefault()
-        const newChat = await createChat('General')
+        const newChat = await createChat()
         await db.chats.update(newChat.id, { title: 'Untitled' })
         const updatedChats = await db.chats.orderBy('updatedAt').reverse().toArray()
         setChats(updatedChats)
         setActiveChatId(newChat.id)
-        setActivePreset('General')
         setTimeout(() => inputRef.current?.focus(), 0)
       }
     }
@@ -94,7 +96,6 @@ export default function ChatWindow() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [activeChatId])
 
-  // Adjust footer height
   useEffect(() => {
     if (!footerRef.current) return
     const observer = new ResizeObserver(([entry]) => {
@@ -104,7 +105,6 @@ export default function ChatWindow() {
     return () => observer.disconnect()
   }, [])
 
-  // Scroll to bottom when messages change
   useEffect(() => {
     if (chatRef.current) {
       chatRef.current.scrollTop = chatRef.current.scrollHeight
@@ -112,11 +112,10 @@ export default function ChatWindow() {
   }, [messages, loading])
 
   const handleNewChat = async () => {
-    const chat = await createChat('General')
+    const chat = await createChat()
     const allChats = await db.chats.orderBy('updatedAt').reverse().toArray()
     setChats(allChats)
     setActiveChatId(chat.id)
-    setActivePreset('General')
     inputRef.current?.focus()
   }
 
@@ -127,7 +126,6 @@ export default function ChatWindow() {
     setChats(updatedChats)
     const nextChat = updatedChats[0]
     setActiveChatId(nextChat?.id || null)
-    setActivePreset(nextChat?.preset || 'General')
     inputRef.current?.focus()
   }
 
@@ -150,7 +148,7 @@ export default function ChatWindow() {
     const systemMessage = {
       id: 'system',
       role: 'system' as Role,
-      content: SYSTEM_PROMPTS[activePreset],
+      content: DEFAULT_SYSTEM_PROMPT,
     }
 
     const existingMessages = await getMessages(activeChatId)
@@ -163,19 +161,27 @@ export default function ChatWindow() {
     try {
       const reader = await streamChat(chatMessages, controller.signal)
       const decoder = new TextDecoder()
+
       while (true) {
         if (controller.signal.aborted) break
         const { done, value } = await reader.read()
         if (done) break
+
         const chunk = decoder.decode(value, { stream: true })
         const lines = chunk.split('\n').filter(line => line.startsWith('data: '))
+
         for (const line of lines) {
           const data = line.slice(6).trim()
-          if (data === '[DONE]') break
-          const json = JSON.parse(data)
-          const delta = json.choices?.[0]?.delta?.content
-          if (delta) {
-            fullResponse += delta
+          if (!data || data === '[DONE]') continue
+
+          try {
+            const json = JSON.parse(data)
+            const delta = json.choices?.[0]?.delta?.content
+            if (delta) {
+              fullResponse += delta
+            }
+          } catch (e) {
+            console.warn('Skipping malformed JSON line:', data)
           }
         }
       }
@@ -188,7 +194,8 @@ export default function ChatWindow() {
       }
     } finally {
       if (fullResponse.trim()) {
-        await addMessage(activeChatId, 'assistant', fullResponse)
+        const clean = sanitizeResponse(fullResponse)
+        await addMessage(activeChatId, 'assistant', clean)
       }
       setLoading(false)
       controllerRef.current = null
@@ -202,11 +209,7 @@ export default function ChatWindow() {
         chats={chats}
         activeChatId={activeChatId}
         onNewChat={handleNewChat}
-        onSelectChat={(id) => {
-          setActiveChatId(id)
-          const chat = chats.find(c => c.id === id)
-          if (chat) setActivePreset(chat.preset)
-        }}
+        onSelectChat={(id) => setActiveChatId(id)}
         onDeleteChat={handleDeleteChat}
         onRenameChat={handleRenameChat}
       />
@@ -222,12 +225,21 @@ export default function ChatWindow() {
           style={{ paddingBottom: `${footerHeight}px` }}
         >
           <div className="max-w-3xl mx-auto w-full px-4 pt-4 space-y-3">
-            <MessageList messages={messages} />
-            {loading && (
-              <div className="flex gap-1 px-2">
-                <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce" />
-                <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce" />
-                <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce" />
+            {activeChatId ? (
+              <>
+                <MessageList messages={messages} />
+                {loading && (
+                  <div className="flex gap-1 px-2">
+                    <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce" />
+                    <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce" />
+                    <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce" />
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="text-center text-gray-500 mt-20">
+                <h1 className="text-2xl font-bold mb-2">Welcome to Sidekick</h1>
+                <p className="text-sm">Start a new chat or select one from the sidebar.</p>
               </div>
             )}
           </div>
@@ -235,12 +247,14 @@ export default function ChatWindow() {
 
         <div ref={footerRef} className="bg-[#1e1e1e] px-6 py-4">
           <div className="max-w-3xl mx-auto w-full">
-            <InputBox
-              onSubmit={handleSend}
-              onAbort={() => controllerRef.current?.abort()}
-              loading={loading}
-              ref={inputRef}
-            />
+            {activeChatId && (
+              <InputBox
+                onSubmit={handleSend}
+                onAbort={() => controllerRef.current?.abort()}
+                loading={loading}
+                ref={inputRef}
+              />
+            )}
           </div>
         </div>
       </div>
