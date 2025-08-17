@@ -49,9 +49,15 @@ export default function Sidebar({
   }
 
   const saveEdit = (chatId: string) => {
-    if (editValue.trim()) onRenameChat(chatId, editValue.trim())
+    const originalTitle = chats.find((c) => c.id === chatId)?.title || ''
+
+    if (editValue.trim()) {
+      onRenameChat(chatId, editValue.trim())
+    } else {
+      setEditValue(originalTitle)
+    }
+
     setEditingId(null)
-    setEditValue('')
   }
 
   return (
@@ -110,7 +116,7 @@ export default function Sidebar({
                 initial={{ opacity: 0, x: -5 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -5 }}
-                transition={{ duration: 0.25, delay: 0.2 }} // ⏳ synced with sidebar
+                transition={{ duration: 0.25, delay: 0.2 }}
               >
                 New Chat
               </motion.span>
@@ -148,28 +154,33 @@ export default function Sidebar({
                     <AnimatePresence mode="wait">
                       {isOpen &&
                         (editingId === chat.id ? (
-                          <motion.input
-                            key="input"
+                          <motion.div
+                            key="input-wrapper"
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
                             transition={{ duration: 0.2, delay: 0.15 }}
-                            value={editValue}
-                            onChange={(e) => {
-                              if (e.target.value.length <= 30)
-                                setEditValue(e.target.value)
-                            }}
-                            onKeyDown={(e) => {
-                              e.stopPropagation()
-                              if (e.key === 'Enter') saveEdit(chat.id)
-                              if (e.key === 'Escape') {
-                                setEditingId(null)
-                                setEditValue('')
-                              }
-                            }}
-                            autoFocus
-                            className="bg-transparent text-white outline-none flex-1 px-1"
-                          />
+                            className="flex-1"
+                          >
+                            <input
+                              value={editValue}
+                              onChange={(e) => setEditValue(e.target.value)}
+                              onKeyDown={(e) => {
+                                e.stopPropagation()
+                                if (e.key === 'Enter') saveEdit(chat.id)
+                                if (e.key === 'Escape') {
+                                  setEditingId(null)
+                                  setEditValue(
+                                    chats.find((c) => c.id === chat.id)?.title ||
+                                      ''
+                                  )
+                                }
+                              }}
+                              onBlur={() => saveEdit(chat.id)}
+                              autoFocus
+                              className="bg-transparent text-white outline-none flex-1 px-1"
+                            />
+                          </motion.div>
                         ) : (
                           <motion.div
                             key="title"
