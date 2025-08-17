@@ -14,6 +14,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Take last 8 messages max for context
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const context = messages.slice(-8).map((m: any) => `${m.role}: ${m.content}`).join('\n')
 
   const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {

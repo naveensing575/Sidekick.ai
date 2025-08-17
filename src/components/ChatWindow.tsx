@@ -48,6 +48,7 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
   const inputRef = useRef<HTMLTextAreaElement | null>(null)
   const controllerRef = useRef<AbortController | null>(null)
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const messages = useLiveQuery(() => {
     if (!activeChatId) return Promise.resolve([])
     return getMessages(activeChatId)

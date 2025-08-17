@@ -14,7 +14,7 @@ export default function PresetSwitcher({ active, onChange }: Props) {
   return (
     <Tabs
       value={active}
-      onValueChange={(val: any) => onChange(val as Preset)}
+      onValueChange={(val) => onChange(val as Preset)}
       className="mb-3 text-white"
     >
       <TabsList className="w-full justify-start gap-2 bg-transparent p-0">

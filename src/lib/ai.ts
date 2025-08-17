@@ -6,7 +6,8 @@ export interface ChatAPIMessage {
 }
 
 export async function streamChat(
-messages: ChatAPIMessage[], signal: AbortSignal): Promise<ReadableStreamDefaultReader<Uint8Array>> {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+messages: ChatAPIMessage[], _signal: AbortSignal): Promise<ReadableStreamDefaultReader<Uint8Array>> {
   const res = await fetch('/api/chat', {
     method: 'POST',
     headers: {
