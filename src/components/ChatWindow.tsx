@@ -228,7 +228,7 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
         onRenameChat={handleRenameChat}
       />
       <div className="flex flex-col flex-1">
-        <div className="border-b border-gray-700 text-center py-2 font-semibold text-gray-400 text-sm">
+        <div className="flex items-center justify-center border-b border-gray-700 h-14 font-semibold text-gray-400 text-sm">
           {chats.find(c => c.id === activeChatId)?.title || 'No Chat Selected'}
         </div>
         <main

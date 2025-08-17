@@ -85,7 +85,12 @@ function ContextMenuSubContent({
     <ContextMenuPrimitive.SubContent
       data-slot="context-menu-sub-content"
       className={cn(
-        "bg-slate-200 dark:bg-slate-800 text-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 min-w-[8rem] origin-(--radix-context-menu-content-transform-origin) overflow-hidden rounded-md border p-1 shadow-lg",
+        "bg-slate-200 dark:bg-slate-800 text-foreground",
+        "data-[state=open]:animate-[pop-in_0.15s_ease-out]",
+        "data-[state=closed]:animate-[pop-out_0.15s_ease-in]",
+        "z-50 min-w-[8rem] rounded-md border p-1 shadow-lg",
+        "origin-(--radix-context-menu-content-transform-origin)",
+        "overflow-hidden",
         className
       )}
       {...props}
@@ -102,7 +107,14 @@ function ContextMenuContent({
       <ContextMenuPrimitive.Content
         data-slot="context-menu-content"
         className={cn(
-          "bg-slate-200 dark:bg-slate-800 text-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 max-h-(--radix-context-menu-content-available-height) min-w-[8rem] origin-(--radix-context-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-md border p-1 shadow-md",
+          "bg-slate-200 dark:bg-slate-800 text-foreground",
+          // animations
+          "data-[state=open]:animate-[pop-in_0.15s_ease-out]",
+          "data-[state=closed]:animate-[pop-out_0.15s_ease-in]",
+          // base styles
+          "z-50 min-w-[8rem] rounded-md border p-1 shadow-lg",
+          "origin-(--radix-context-menu-content-transform-origin)",
+          "overflow-x-hidden overflow-y-auto",
           className
         )}
         {...props}
