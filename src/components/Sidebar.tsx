@@ -86,9 +86,9 @@ export default function Sidebar({
           )}
         </AnimatePresence>
 
-        <button
+        <Button
           onClick={() => setIsOpen(!isOpen)}
-          className="flex items-center justify-center w-8 h-8 rounded-full bg-[#2a2a2d] hover:bg-[#3a3a3d] transition-colors duration-300"
+          className="flex items-center justify-center w-8 h-8 rounded-full bg-[#2a2a2d] hover:bg-[#3a3a3d] transition-colors duration-300 cursor-pointer"
         >
           <span
             className={cn(
@@ -98,7 +98,7 @@ export default function Sidebar({
           >
             S
           </span>
-        </button>
+        </Button>
       </div>
 
       {/* New Chat Button */}
