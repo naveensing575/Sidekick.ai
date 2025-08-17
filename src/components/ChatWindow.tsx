@@ -7,6 +7,7 @@ import Sidebar from './Sidebar'
 import MessageList from './MessageList'
 import InputBox from './InputBox'
 import { streamChat } from '@/lib/ai'
+import { motion, AnimatePresence } from 'framer-motion'
 
 export type Role = 'system' | 'user' | 'assistant'
 
@@ -52,11 +53,11 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
     return getMessages(activeChatId)
   }, [activeChatId]) ?? []
 
-  // Restore chatId if not from props
+  // restore chatId
   useEffect(() => {
     if (!chatId) {
-      const savedChatId = localStorage.getItem('activeChatId')
-      if (savedChatId) setActiveChatId(savedChatId)
+      const saved = localStorage.getItem('activeChatId')
+      if (saved) setActiveChatId(saved)
     }
   }, [chatId])
 
@@ -64,44 +65,44 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
     if (activeChatId) localStorage.setItem('activeChatId', activeChatId)
   }, [activeChatId])
 
-  // Load chats
+  // load chats
   useEffect(() => {
-    const loadChats = async () => {
-      const allChats = await db.chats.orderBy('updatedAt').reverse().toArray()
-      setChats(allChats)
-      if (!activeChatId && allChats.length) setActiveChatId(allChats[0].id)
+    const load = async () => {
+      const all = await db.chats.orderBy('updatedAt').reverse().toArray()
+      setChats(all)
+      if (!activeChatId && all.length) setActiveChatId(all[0].id)
     }
-    loadChats()
+    load()
   }, [activeChatId])
 
   useEffect(() => {
     inputRef.current?.focus()
   }, [activeChatId])
 
-  // Auto-create chat on typing
+  // auto-create chat on typing
   useEffect(() => {
-    const handleKeyDown = async (e: KeyboardEvent) => {
+    const handler = async (e: KeyboardEvent) => {
       if (!activeChatId && e.key.length === 1 && !e.metaKey && !e.ctrlKey) {
         e.preventDefault()
         const newChat = await createChat()
         await db.chats.update(newChat.id, { title: 'Untitled' })
-        const updatedChats = await db.chats.orderBy('updatedAt').reverse().toArray()
-        setChats(updatedChats)
+        const updated = await db.chats.orderBy('updatedAt').reverse().toArray()
+        setChats(updated)
         setActiveChatId(newChat.id)
         setTimeout(() => inputRef.current?.focus(), 0)
       }
     }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
   }, [activeChatId])
 
   useEffect(() => {
     if (!footerRef.current) return
-    const observer = new ResizeObserver(([entry]) => {
+    const obs = new ResizeObserver(([entry]) => {
       setFooterHeight(entry.contentRect.height)
     })
-    observer.observe(footerRef.current)
-    return () => observer.disconnect()
+    obs.observe(footerRef.current)
+    return () => obs.disconnect()
   }, [])
 
   useEffect(() => {
@@ -110,8 +111,8 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
 
   const handleNewChat = async () => {
     const chat = await createChat()
-    const allChats = await db.chats.orderBy('updatedAt').reverse().toArray()
-    setChats(allChats)
+    const all = await db.chats.orderBy('updatedAt').reverse().toArray()
+    setChats(all)
     setActiveChatId(chat.id)
     inputRef.current?.focus()
   }
@@ -119,51 +120,46 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
   const handleDeleteChat = async (id: string) => {
     await db.messages.where('chatId').equals(id).delete()
     await db.chats.delete(id)
-    const updatedChats = await db.chats.orderBy('updatedAt').reverse().toArray()
-    setChats(updatedChats)
-    const nextChat = updatedChats[0]
-    setActiveChatId(nextChat?.id || null)
+    const updated = await db.chats.orderBy('updatedAt').reverse().toArray()
+    setChats(updated)
+    setActiveChatId(updated[0]?.id || null)
     inputRef.current?.focus()
   }
 
   const handleRenameChat = async (id: string, newTitle: string) => {
-    // persist to DB
-    await db.chats.update(id, { title: newTitle, updatedAt: Date.now() })
-    // update local state
+    const trimmed = newTitle.trim()
+    if (!trimmed) return // ❌ ignore empty rename
+    await db.chats.update(id, { title: trimmed, updatedAt: Date.now() })
     setChats(prev =>
-      prev.map(c => (c.id === id ? { ...c, title: newTitle, updatedAt: Date.now() } : c))
+      prev.map(c => (c.id === id ? { ...c, title: trimmed, updatedAt: Date.now() } : c))
     )
   }
 
   const handleSend = async (text: string) => {
     if (!text.trim() || !activeChatId) return
     const userMessage: Message = { id: crypto.randomUUID(), role: 'user', content: text.trim() }
-
     await addMessage(activeChatId, 'user', text)
     setLoading(true)
 
     const systemMessage = { id: 'system', role: 'system' as Role, content: DEFAULT_SYSTEM_PROMPT }
-    const existingMessages = await getMessages(activeChatId)
-    const chatMessages = [systemMessage, ...existingMessages, userMessage].map(
-      ({ role, content }) => ({ role, content })
-    )
+    const existing = await getMessages(activeChatId)
+    const chatMessages = [systemMessage, ...existing, userMessage].map(({ role, content }) => ({ role, content }))
 
     const controller = new AbortController()
     controllerRef.current = controller
-
     let fullResponse = ''
+
     try {
       const reader = await streamChat(chatMessages, controller.signal)
       const decoder = new TextDecoder()
-
       while (true) {
         if (controller.signal.aborted) break
         const { done, value } = await reader.read()
         if (done) break
         const chunk = decoder.decode(value, { stream: true })
-        const lines = chunk.split('\n').filter(line => line.startsWith('data: '))
-        for (const line of lines) {
-          const data = line.slice(6).trim()
+        const lines = chunk.split('\n').filter(l => l.startsWith('data: '))
+        for (const l of lines) {
+          const data = l.slice(6).trim()
           if (!data || data === '[DONE]') continue
           try {
             const json = JSON.parse(data)
@@ -178,18 +174,13 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
       if (fullResponse.trim()) {
         const clean = sanitizeResponse(fullResponse)
         await addMessage(activeChatId, 'assistant', clean)
-
-        // 🔹 Auto-rename if Untitled
         const currentChat = chats.find(c => c.id === activeChatId)
         if (currentChat && (currentChat.title === 'Untitled' || !currentChat.title)) {
           setRenamingChatId(activeChatId)
           fetch('/api/rename-chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              chatId: activeChatId,
-              messages: [...messages, { role: 'assistant', content: clean }],
-            }),
+            body: JSON.stringify({ chatId: activeChatId, messages: [...messages, { role: 'assistant', content: clean }] }),
           })
             .then(async res => {
               if (!res.ok) throw new Error(await res.text())
@@ -197,13 +188,9 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
             })
             .then(async data => {
               if (data.title) {
-                // persist title
                 await db.chats.update(activeChatId, { title: data.title, updatedAt: Date.now() })
-                // update state
                 setChats(prev =>
-                  prev.map(c =>
-                    c.id === activeChatId ? { ...c, title: data.title, updatedAt: Date.now() } : c
-                  )
+                  prev.map(c => (c.id === activeChatId ? { ...c, title: data.title, updatedAt: Date.now() } : c))
                 )
               }
             })
@@ -223,39 +210,92 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
         activeChatId={activeChatId}
         renamingChatId={renamingChatId}
         onNewChat={handleNewChat}
-        onSelectChat={(id) => setActiveChatId(id)}
+        onSelectChat={id => setActiveChatId(id)}
         onDeleteChat={handleDeleteChat}
         onRenameChat={handleRenameChat}
       />
-      <div className="flex flex-col flex-1">
-        <div className="flex items-center justify-center border-b border-gray-700 h-14 font-semibold text-gray-400 text-sm">
+
+      <motion.div
+        className="flex flex-col flex-1"
+        key={activeChatId}
+        initial={{ opacity: 0, x: 20 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, x: -20 }}
+        transition={{ duration: 0.3, ease: 'easeOut' }}
+      >
+        {/* Title bar */}
+        <motion.div
+          className="flex items-center justify-center border-b border-gray-700 h-14 font-semibold text-gray-400 text-sm"
+          key={activeChatId ? chats.find(c => c.id === activeChatId)?.title : 'empty'}
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.25 }}
+        >
           {chats.find(c => c.id === activeChatId)?.title || 'No Chat Selected'}
-        </div>
+        </motion.div>
+
+        {/* Messages */}
         <main
           ref={chatRef}
           className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent"
           style={{ paddingBottom: `${footerHeight}px` }}
         >
           <div className="max-w-3xl mx-auto w-full px-4 pt-4 space-y-3">
-            {activeChatId ? (
-              <>
-                <MessageList messages={messages} />
-                {loading && (
-                  <div className="flex gap-1 px-2">
-                    <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce" />
-                    <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce" />
-                    <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce" />
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="text-center text-gray-500 mt-20">
-                <h1 className="text-2xl font-bold mb-2">Welcome to Sidekick</h1>
-                <p className="text-sm">Start a new chat or select one from the sidebar.</p>
-              </div>
+            <AnimatePresence mode="wait">
+              {activeChatId ? (
+                messages.length > 0 ? (
+                  // ✅ render all messages in one MessageList (not one by one anim)
+                  <motion.div
+                    key="messages"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <MessageList messages={messages} />
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="empty"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="text-center text-gray-500 mt-20"
+                  >
+                    <p>No messages yet. Say hi 👋</p>
+                  </motion.div>
+                )
+              ) : (
+                <motion.div
+                  key="welcome"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="text-center text-gray-500 mt-20"
+                >
+                  <h1 className="text-2xl font-bold mb-2">Welcome to Sidekick</h1>
+                  <p className="text-sm">Start a new chat or select one from the sidebar.</p>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {loading && (
+              <motion.div
+                className="flex gap-1 px-2"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+              >
+                <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce" />
+                <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce" />
+                <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce" />
+              </motion.div>
             )}
           </div>
         </main>
+
+        {/* Footer */}
         <div ref={footerRef} className="bg-[#1e1e1e] px-6 py-4">
           <div className="max-w-3xl mx-auto w-full">
             {activeChatId && (
@@ -268,7 +308,7 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
             )}
           </div>
         </div>
-      </div>
+      </motion.div>
     </div>
   )
 }
