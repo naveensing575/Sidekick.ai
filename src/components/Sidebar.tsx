@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Plus, MessageSquare, Settings, Trash, Pencil } from 'lucide-react'
+import { Plus, MessageSquare, Settings, Trash, Pencil, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
   ContextMenu,
@@ -15,6 +15,7 @@ import {
 interface SidebarProps {
   chats: { id: string; title: string }[]
   activeChatId: string | null
+  renamingChatId: string | null
   onNewChat: () => void
   onSelectChat: (id: string) => void
   onDeleteChat: (id: string) => void
@@ -24,6 +25,7 @@ interface SidebarProps {
 export default function Sidebar({
   chats,
   activeChatId,
+  renamingChatId,
   onNewChat,
   onSelectChat,
   onDeleteChat,
@@ -39,9 +41,7 @@ export default function Sidebar({
   }
 
   const saveEdit = (chatId: string) => {
-    if (editValue.trim()) {
-      onRenameChat(chatId, editValue.trim())
-    }
+    if (editValue.trim()) onRenameChat(chatId, editValue.trim())
     setEditingId(null)
     setEditValue('')
   }
@@ -53,7 +53,6 @@ export default function Sidebar({
         isOpen ? 'w-64' : 'w-16'
       )}
     >
-      {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700">
         <span
           className={cn(
@@ -79,7 +78,6 @@ export default function Sidebar({
         </button>
       </div>
 
-      {/* New Chat */}
       <div className="p-3">
         <Button
           onClick={onNewChat}
@@ -91,7 +89,6 @@ export default function Sidebar({
         </Button>
       </div>
 
-      {/* Chat List */}
       <ScrollArea className="flex-1 px-2">
         {chats.length > 0 ? (
           chats.map((chat) => (
@@ -106,9 +103,7 @@ export default function Sidebar({
                       : 'hover:bg-[#2a2a2d]'
                   )}
                   onClick={() => {
-                    if (editingId !== chat.id) {
-                      onSelectChat(chat.id)
-                    }
+                    if (editingId !== chat.id) onSelectChat(chat.id)
                   }}
                 >
                   <MessageSquare className="w-4 h-4" />
@@ -117,9 +112,7 @@ export default function Sidebar({
                       <input
                         value={editValue}
                         onChange={(e) => {
-                          if (e.target.value.length <= 10) {
-                            setEditValue(e.target.value)
-                          }
+                          if (e.target.value.length <= 15) setEditValue(e.target.value)
                         }}
                         onKeyDown={(e) => {
                           e.stopPropagation()
@@ -132,9 +125,13 @@ export default function Sidebar({
                         autoFocus
                         className="bg-transparent text-white outline-none flex-1 px-1"
                       />
-
                     ) : (
-                      chat.title
+                      <div className="flex items-center gap-2">
+                        <span>{chat.title}</span>
+                        {renamingChatId === chat.id && (
+                          <Loader2 className="w-3 h-3 animate-spin text-gray-400" />
+                        )}
+                      </div>
                     ))}
                 </Button>
               </ContextMenuTrigger>
@@ -153,13 +150,10 @@ export default function Sidebar({
             </ContextMenu>
           ))
         ) : (
-          <p className={cn('text-gray-500 text-sm px-3', !isOpen && 'hidden')}>
-            No chats yet
-          </p>
+          <p className={cn('text-gray-500 text-sm px-3', !isOpen && 'hidden')}>No chats yet</p>
         )}
       </ScrollArea>
 
-      {/* Footer */}
       <div className="p-3 border-t border-gray-700">
         <Button
           variant="ghost"

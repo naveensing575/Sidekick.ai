@@ -32,7 +32,6 @@ You are Sidekick, a helpful AI assistant.
 `
 
 function sanitizeResponse(text: string) {
-  // collapse repeated emojis (3+ same in a row → 1)
   return text.replace(/(\p{Emoji_Presentation}|\p{Emoji}\uFE0F){3,}/gu, match => match[0])
 }
 
@@ -41,6 +40,7 @@ export default function ChatWindow() {
   const [activeChatId, setActiveChatId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [footerHeight, setFooterHeight] = useState(0)
+  const [renamingChatId, setRenamingChatId] = useState<string | null>(null)
 
   const chatRef = useRef<HTMLDivElement | null>(null)
   const footerRef = useRef<HTMLDivElement | null>(null)
@@ -54,24 +54,18 @@ export default function ChatWindow() {
 
   useEffect(() => {
     const savedChatId = localStorage.getItem('activeChatId')
-    if (savedChatId) {
-      setActiveChatId(savedChatId)
-    }
+    if (savedChatId) setActiveChatId(savedChatId)
   }, [])
 
   useEffect(() => {
-    if (activeChatId) {
-      localStorage.setItem('activeChatId', activeChatId)
-    }
+    if (activeChatId) localStorage.setItem('activeChatId', activeChatId)
   }, [activeChatId])
 
   useEffect(() => {
     const loadChats = async () => {
       const allChats = await db.chats.orderBy('updatedAt').reverse().toArray()
       setChats(allChats)
-      if (!activeChatId && allChats.length) {
-        setActiveChatId(allChats[0].id)
-      }
+      if (!activeChatId && allChats.length) setActiveChatId(allChats[0].id)
     }
     loadChats()
   }, [activeChatId])
@@ -106,9 +100,7 @@ export default function ChatWindow() {
   }, [])
 
   useEffect(() => {
-    if (chatRef.current) {
-      chatRef.current.scrollTop = chatRef.current.scrollHeight
-    }
+    if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight
   }, [messages, loading])
 
   const handleNewChat = async () => {
@@ -129,13 +121,10 @@ export default function ChatWindow() {
     inputRef.current?.focus()
   }
 
-  const handleRenameChat = async (chatId: string) => {
-    const newTitle = prompt('Enter new title')
-    if (newTitle) {
-      await db.chats.update(chatId, { title: newTitle, updatedAt: Date.now() })
-      const updated = await db.chats.orderBy('updatedAt').reverse().toArray()
-      setChats(updated)
-    }
+  const handleRenameChat = async (chatId: string, newTitle: string) => {
+    await db.chats.update(chatId, { title: newTitle, updatedAt: Date.now() })
+    const updated = await db.chats.orderBy('updatedAt').reverse().toArray()
+    setChats(updated)
   }
 
   const handleSend = async (text: string) => {
@@ -145,12 +134,7 @@ export default function ChatWindow() {
     await addMessage(activeChatId, 'user', text)
     setLoading(true)
 
-    const systemMessage = {
-      id: 'system',
-      role: 'system' as Role,
-      content: DEFAULT_SYSTEM_PROMPT,
-    }
-
+    const systemMessage = { id: 'system', role: 'system' as Role, content: DEFAULT_SYSTEM_PROMPT }
     const existingMessages = await getMessages(activeChatId)
     const chatMessages = [systemMessage, ...existingMessages, userMessage].map(({ role, content }) => ({ role, content }))
 
@@ -166,36 +150,47 @@ export default function ChatWindow() {
         if (controller.signal.aborted) break
         const { done, value } = await reader.read()
         if (done) break
-
         const chunk = decoder.decode(value, { stream: true })
         const lines = chunk.split('\n').filter(line => line.startsWith('data: '))
-
         for (const line of lines) {
           const data = line.slice(6).trim()
           if (!data || data === '[DONE]') continue
-
           try {
             const json = JSON.parse(data)
             const delta = json.choices?.[0]?.delta?.content
-            if (delta) {
-              fullResponse += delta
-            }
-          } catch (e) {
-            console.warn('Skipping malformed JSON line:', data)
-          }
+            if (delta) fullResponse += delta
+          } catch {}
         }
       }
-    } catch (err) {
-      if (controller.signal.aborted) {
-        console.log('Stream aborted by user')
-      } else {
-        console.error(err)
-        fullResponse = 'Something went wrong.'
-      }
+    } catch {
+      fullResponse = 'Something went wrong.'
     } finally {
       if (fullResponse.trim()) {
         const clean = sanitizeResponse(fullResponse)
         await addMessage(activeChatId, 'assistant', clean)
+        const currentChat = chats.find(c => c.id === activeChatId)
+        if (currentChat && currentChat.title === 'Untitled') {
+          setRenamingChatId(activeChatId)
+          fetch('/api/rename-chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chatId: activeChatId }),
+          })
+            .then(async res => {
+              if (!res.ok) throw new Error(await res.text())
+              return res.json()
+            })
+            .then(data => {
+              if (data.title) {
+                setChats(prev =>
+                  prev.map(c =>
+                    c.id === activeChatId ? { ...c, title: data.title } : c
+                  )
+                )
+              }
+            })
+            .finally(() => setRenamingChatId(null))
+        }
       }
       setLoading(false)
       controllerRef.current = null
@@ -208,17 +203,16 @@ export default function ChatWindow() {
       <Sidebar
         chats={chats}
         activeChatId={activeChatId}
+        renamingChatId={renamingChatId}
         onNewChat={handleNewChat}
         onSelectChat={(id) => setActiveChatId(id)}
         onDeleteChat={handleDeleteChat}
         onRenameChat={handleRenameChat}
       />
-
       <div className="flex flex-col flex-1">
         <div className="border-b border-gray-700 text-center py-2 font-semibold text-gray-400 text-sm">
           {chats.find(c => c.id === activeChatId)?.title || 'No Chat Selected'}
         </div>
-
         <main
           ref={chatRef}
           className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent"
@@ -244,7 +238,6 @@ export default function ChatWindow() {
             )}
           </div>
         </main>
-
         <div ref={footerRef} className="bg-[#1e1e1e] px-6 py-4">
           <div className="max-w-3xl mx-auto w-full">
             {activeChatId && (

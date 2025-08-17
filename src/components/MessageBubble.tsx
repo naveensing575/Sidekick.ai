@@ -17,12 +17,15 @@ export default function MessageBubble({
     <div className={cn('w-full flex', isUser ? 'justify-end' : 'justify-start')}>
       <div
         className={cn(
-          'max-w-3xl px-4 py-2 rounded-2xl text-sm backdrop-blur-md',
-          'whitespace-pre-wrap break-words break-all',
+          'px-4 py-2 rounded-2xl text-sm backdrop-blur-md',
+          'whitespace-pre-wrap break-words',
           isUser
-            ? 'bg-white text-black dark:bg-white/90'
-            : 'bg-gray-800/60 text-white dark:bg-gray-700/40'
+            ? 'bg-white text-black dark:bg-white/90 max-w-1/2'
+            : 'bg-gray-800/60 text-white dark:bg-gray-700/40 max-w-3xl'
         )}
+        style={{
+          wordBreak: 'break-word',
+        }}
       >
         <Markdown content={content} />
       </div>
