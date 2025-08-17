@@ -35,9 +35,9 @@ function sanitizeResponse(text: string) {
   return text.replace(/(\p{Emoji_Presentation}|\p{Emoji}\uFE0F){3,}/gu, match => match[0])
 }
 
-export default function ChatWindow() {
+export default function ChatWindow({ chatId }: { chatId?: string }) {
   const [chats, setChats] = useState<ChatType[]>([])
-  const [activeChatId, setActiveChatId] = useState<string | null>(null)
+  const [activeChatId, setActiveChatId] = useState<string | null>(chatId ?? null)
   const [loading, setLoading] = useState(false)
   const [footerHeight, setFooterHeight] = useState(0)
   const [renamingChatId, setRenamingChatId] = useState<string | null>(null)
@@ -52,15 +52,19 @@ export default function ChatWindow() {
     return getMessages(activeChatId)
   }, [activeChatId]) ?? []
 
+  // Restore chatId if not from props
   useEffect(() => {
-    const savedChatId = localStorage.getItem('activeChatId')
-    if (savedChatId) setActiveChatId(savedChatId)
-  }, [])
+    if (!chatId) {
+      const savedChatId = localStorage.getItem('activeChatId')
+      if (savedChatId) setActiveChatId(savedChatId)
+    }
+  }, [chatId])
 
   useEffect(() => {
     if (activeChatId) localStorage.setItem('activeChatId', activeChatId)
   }, [activeChatId])
 
+  // Load chats
   useEffect(() => {
     const loadChats = async () => {
       const allChats = await db.chats.orderBy('updatedAt').reverse().toArray()
@@ -74,6 +78,7 @@ export default function ChatWindow() {
     inputRef.current?.focus()
   }, [activeChatId])
 
+  // Auto-create chat on typing
   useEffect(() => {
     const handleKeyDown = async (e: KeyboardEvent) => {
       if (!activeChatId && e.key.length === 1 && !e.metaKey && !e.ctrlKey) {
@@ -111,9 +116,9 @@ export default function ChatWindow() {
     inputRef.current?.focus()
   }
 
-  const handleDeleteChat = async (chatId: string) => {
-    await db.messages.where('chatId').equals(chatId).delete()
-    await db.chats.delete(chatId)
+  const handleDeleteChat = async (id: string) => {
+    await db.messages.where('chatId').equals(id).delete()
+    await db.chats.delete(id)
     const updatedChats = await db.chats.orderBy('updatedAt').reverse().toArray()
     setChats(updatedChats)
     const nextChat = updatedChats[0]
@@ -121,10 +126,13 @@ export default function ChatWindow() {
     inputRef.current?.focus()
   }
 
-  const handleRenameChat = async (chatId: string, newTitle: string) => {
-    await db.chats.update(chatId, { title: newTitle, updatedAt: Date.now() })
-    const updated = await db.chats.orderBy('updatedAt').reverse().toArray()
-    setChats(updated)
+  const handleRenameChat = async (id: string, newTitle: string) => {
+    // persist to DB
+    await db.chats.update(id, { title: newTitle, updatedAt: Date.now() })
+    // update local state
+    setChats(prev =>
+      prev.map(c => (c.id === id ? { ...c, title: newTitle, updatedAt: Date.now() } : c))
+    )
   }
 
   const handleSend = async (text: string) => {
@@ -136,7 +144,9 @@ export default function ChatWindow() {
 
     const systemMessage = { id: 'system', role: 'system' as Role, content: DEFAULT_SYSTEM_PROMPT }
     const existingMessages = await getMessages(activeChatId)
-    const chatMessages = [systemMessage, ...existingMessages, userMessage].map(({ role, content }) => ({ role, content }))
+    const chatMessages = [systemMessage, ...existingMessages, userMessage].map(
+      ({ role, content }) => ({ role, content })
+    )
 
     const controller = new AbortController()
     controllerRef.current = controller
@@ -168,23 +178,31 @@ export default function ChatWindow() {
       if (fullResponse.trim()) {
         const clean = sanitizeResponse(fullResponse)
         await addMessage(activeChatId, 'assistant', clean)
+
+        // 🔹 Auto-rename if Untitled
         const currentChat = chats.find(c => c.id === activeChatId)
-        if (currentChat && currentChat.title === 'Untitled') {
+        if (currentChat && (currentChat.title === 'Untitled' || !currentChat.title)) {
           setRenamingChatId(activeChatId)
           fetch('/api/rename-chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chatId: activeChatId }),
+            body: JSON.stringify({
+              chatId: activeChatId,
+              messages: [...messages, { role: 'assistant', content: clean }],
+            }),
           })
             .then(async res => {
               if (!res.ok) throw new Error(await res.text())
               return res.json()
             })
-            .then(data => {
+            .then(async data => {
               if (data.title) {
+                // persist title
+                await db.chats.update(activeChatId, { title: data.title, updatedAt: Date.now() })
+                // update state
                 setChats(prev =>
                   prev.map(c =>
-                    c.id === activeChatId ? { ...c, title: data.title } : c
+                    c.id === activeChatId ? { ...c, title: data.title, updatedAt: Date.now() } : c
                   )
                 )
               }
