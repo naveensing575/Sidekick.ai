@@ -65,17 +65,21 @@ export default function Sidebar({
     >
       {/* Top Header */}
       <div className="flex items-center justify-between h-14 px-4 border-b border-gray-700 bg-[#202020] mb-2">
-        <span
-          className={cn(
-            'font-semibold text-gray-200 text-base whitespace-nowrap overflow-hidden',
-            'transition-all duration-500 ease-in-out',
-            isOpen
-              ? 'opacity-100 delay-200 w-auto'
-              : 'opacity-0 delay-0 w-0'
+        <AnimatePresence>
+          {isOpen && (
+            <motion.span
+              key="title"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ delay: 0.35, duration: 0.2 }}
+              className="font-semibold text-gray-200 text-base whitespace-nowrap overflow-hidden"
+            >
+              Sidekick
+            </motion.span>
           )}
-        >
-          Sidekick
-        </span>
+        </AnimatePresence>
+
         <button
           onClick={() => setIsOpen(!isOpen)}
           className="flex items-center justify-center w-8 h-8 rounded-full bg-[#2a2a2d] hover:bg-[#3a3a3d] transition-colors duration-300"
@@ -91,7 +95,6 @@ export default function Sidebar({
         </button>
       </div>
 
-
       {/* New Chat Button */}
       <div className="p-3">
         <Button
@@ -103,10 +106,11 @@ export default function Sidebar({
           <AnimatePresence>
             {isOpen && (
               <motion.span
+                key="newchat"
                 initial={{ opacity: 0, x: -5 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -5 }}
-                transition={{ duration: 0.2 }}
+                transition={{ delay: 0.35, duration: 0.2 }}
               >
                 New Chat
               </motion.span>
@@ -141,33 +145,48 @@ export default function Sidebar({
                     }}
                   >
                     <MessageSquare className="w-4 h-4" />
-                    {isOpen &&
-                      (editingId === chat.id ? (
-                        <input
-                          value={editValue}
-                          onChange={(e) => {
-                            if (e.target.value.length <= 30)
-                              setEditValue(e.target.value)
-                          }}
-                          onKeyDown={(e) => {
-                            e.stopPropagation()
-                            if (e.key === 'Enter') saveEdit(chat.id)
-                            if (e.key === 'Escape') {
-                              setEditingId(null)
-                              setEditValue('')
-                            }
-                          }}
-                          autoFocus
-                          className="bg-transparent text-white outline-none flex-1 px-1"
-                        />
-                      ) : (
-                        <div className="flex items-center gap-2 truncate">
-                          <span className="truncate">{chat.title}</span>
-                          {renamingChatId === chat.id && (
-                            <Loader2 className="w-3 h-3 animate-spin text-gray-400" />
-                          )}
-                        </div>
-                      ))}
+                    <AnimatePresence>
+                      {isOpen && (
+                        editingId === chat.id ? (
+                          <motion.input
+                            key="input"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ delay: 0.35, duration: 0.2 }}
+                            value={editValue}
+                            onChange={(e) => {
+                              if (e.target.value.length <= 30)
+                                setEditValue(e.target.value)
+                            }}
+                            onKeyDown={(e) => {
+                              e.stopPropagation()
+                              if (e.key === 'Enter') saveEdit(chat.id)
+                              if (e.key === 'Escape') {
+                                setEditingId(null)
+                                setEditValue('')
+                              }
+                            }}
+                            autoFocus
+                            className="bg-transparent text-white outline-none flex-1 px-1"
+                          />
+                        ) : (
+                          <motion.div
+                            key="title"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ delay: 0.35, duration: 0.2 }}
+                            className="flex items-center gap-2 truncate"
+                          >
+                            <span className="truncate">{chat.title}</span>
+                            {renamingChatId === chat.id && (
+                              <Loader2 className="w-3 h-3 animate-spin text-gray-400" />
+                            )}
+                          </motion.div>
+                        )
+                      )}
+                    </AnimatePresence>
                   </Button>
                 </motion.div>
               </ContextMenuTrigger>
@@ -188,11 +207,18 @@ export default function Sidebar({
             </ContextMenu>
           ))
         ) : (
-          <p
-            className={cn('text-gray-500 text-sm px-3', !isOpen && 'hidden')}
-          >
-            No chats yet
-          </p>
+          isOpen && (
+            <motion.p
+              key="nochats"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ delay: 0.35, duration: 0.2 }}
+              className="text-gray-500 text-sm px-3"
+            >
+              No chats yet
+            </motion.p>
+          )
         )}
       </ScrollArea>
 
@@ -206,10 +232,11 @@ export default function Sidebar({
           <AnimatePresence>
             {isOpen && (
               <motion.span
+                key="settings"
                 initial={{ opacity: 0, x: -5 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -5 }}
-                transition={{ duration: 0.2 }}
+                transition={{ delay: 0.35, duration: 0.2 }}
               >
                 Settings
               </motion.span>
