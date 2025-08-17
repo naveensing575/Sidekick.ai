@@ -65,14 +65,14 @@ export default function Sidebar({
     >
       {/* Top Header */}
       <div className="flex items-center justify-between h-14 px-4 border-b border-gray-700 bg-[#202020] mb-2">
-        <AnimatePresence>
+        <AnimatePresence mode="wait">
           {isOpen && (
             <motion.span
               key="title"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ delay: 0.35, duration: 0.2 }}
+              transition={{ duration: 0.25, delay: 0.15 }}
               className="font-semibold text-gray-200 text-base whitespace-nowrap overflow-hidden"
             >
               Sidekick
@@ -103,14 +103,14 @@ export default function Sidebar({
           className="w-full justify-start gap-2 text-slate-50 bg-[#2a2a2d] hover:bg-[#343437] transition-colors"
         >
           <Plus className="w-4 h-4" />
-          <AnimatePresence>
+          <AnimatePresence mode="wait">
             {isOpen && (
               <motion.span
                 key="newchat"
                 initial={{ opacity: 0, x: -5 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -5 }}
-                transition={{ delay: 0.35, duration: 0.2 }}
+                transition={{ duration: 0.25, delay: 0.2 }} // ⏳ synced with sidebar
               >
                 New Chat
               </motion.span>
@@ -145,15 +145,15 @@ export default function Sidebar({
                     }}
                   >
                     <MessageSquare className="w-4 h-4" />
-                    <AnimatePresence>
-                      {isOpen && (
-                        editingId === chat.id ? (
+                    <AnimatePresence mode="wait">
+                      {isOpen &&
+                        (editingId === chat.id ? (
                           <motion.input
                             key="input"
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            transition={{ delay: 0.35, duration: 0.2 }}
+                            transition={{ duration: 0.2, delay: 0.15 }}
                             value={editValue}
                             onChange={(e) => {
                               if (e.target.value.length <= 30)
@@ -176,7 +176,7 @@ export default function Sidebar({
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            transition={{ delay: 0.35, duration: 0.2 }}
+                            transition={{ duration: 0.2, delay: 0.15 }}
                             className="flex items-center gap-2 truncate"
                           >
                             <span className="truncate">{chat.title}</span>
@@ -184,8 +184,7 @@ export default function Sidebar({
                               <Loader2 className="w-3 h-3 animate-spin text-gray-400" />
                             )}
                           </motion.div>
-                        )
-                      )}
+                        ))}
                     </AnimatePresence>
                   </Button>
                 </motion.div>
@@ -213,7 +212,7 @@ export default function Sidebar({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ delay: 0.35, duration: 0.2 }}
+              transition={{ duration: 0.25, delay: 0.2 }}
               className="text-gray-500 text-sm px-3"
             >
               No chats yet
@@ -229,14 +228,14 @@ export default function Sidebar({
           className="w-full justify-start gap-2 text-gray-400 hover:bg-[#2a2a2d]"
         >
           <Settings className="w-4 h-4" />
-          <AnimatePresence>
+          <AnimatePresence mode="wait">
             {isOpen && (
               <motion.span
                 key="settings"
                 initial={{ opacity: 0, x: -5 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -5 }}
-                transition={{ delay: 0.35, duration: 0.2 }}
+                transition={{ duration: 0.25, delay: 0.2 }}
               >
                 Settings
               </motion.span>
