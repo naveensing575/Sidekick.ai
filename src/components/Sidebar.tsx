@@ -66,7 +66,7 @@ export default function Sidebar({
       animate={{ width: isOpen ? 256 : 64 }}
       transition={{ duration: 0.4, ease: 'easeInOut' }}
       className={cn(
-        'h-full md:h-screen bg-[#181818] text-white border-r border-gray-700 flex flex-col z-50' // ⬅ ensures sidebar stays above input/footer
+        'h-full md:h-screen bg-[#181818] text-white border-r border-gray-700 flex flex-col z-[9999]' // ✅ always on top
       )}
     >
       {/* Top Header */}
@@ -144,7 +144,7 @@ export default function Sidebar({
                       'w-full justify-start gap-2 text-left transition-colors',
                       chat.id === activeChatId
                         ? 'bg-[#2f2f33] text-white hover:bg-slate-500'
-                        : 'hover:bg-slate-700'
+                        : 'hover:bg-slate-500/70'
                     )}
                     onClick={() => {
                       if (editingId !== chat.id) onSelectChat(chat.id)
@@ -171,8 +171,8 @@ export default function Sidebar({
                                 if (e.key === 'Escape') {
                                   setEditingId(null)
                                   setEditValue(
-                                    chats.find((c) => c.id === chat.id)?.title ||
-                                      ''
+                                    chats.find((c) => c.id === chat.id)
+                                      ?.title || ''
                                   )
                                 }
                               }}
@@ -201,7 +201,7 @@ export default function Sidebar({
                 </motion.div>
               </ContextMenuTrigger>
 
-              <ContextMenuContent>
+              <ContextMenuContent className="z-[10000]">
                 <ContextMenuItem
                   onClick={() => startEditing(chat.id, chat.title)}
                 >
@@ -214,6 +214,7 @@ export default function Sidebar({
                   <Trash className="w-4 h-4 mr-2" /> Delete
                 </ContextMenuItem>
               </ContextMenuContent>
+
             </ContextMenu>
           ))
         ) : (

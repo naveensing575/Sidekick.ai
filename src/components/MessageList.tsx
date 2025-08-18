@@ -16,7 +16,6 @@ export default function MessageList({
           key={msg.id}
           role={msg.role}
           content={msg.content}
-          isLive={false} // ✅ old messages are direct
         />
       ))}
 
@@ -26,7 +25,6 @@ export default function MessageList({
           key="live"
           role="assistant"
           content={liveMessage}
-          isLive={true} // ✅ only this animates
         />
       )}
     </div>

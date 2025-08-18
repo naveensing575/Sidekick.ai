@@ -228,32 +228,33 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
       </div>
 
       {/* Mobile sidebar overlay */}
-      <AnimatePresence>
-        {mobileSidebarOpen && (
-          <motion.div
-            className="fixed inset-0 z-40 bg-black/60 flex md:hidden"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setMobileSidebarOpen(false)}
-          >
-            <div onClick={e => e.stopPropagation()} className="h-full">
-              <Sidebar
-                chats={chats}
-                activeChatId={activeChatId}
-                renamingChatId={renamingChatId}
-                onNewChat={handleNewChat}
-                onSelectChat={id => {
-                  setActiveChatId(id)
-                  setMobileSidebarOpen(false)
-                }}
-                onDeleteChat={handleDeleteChat}
-                onRenameChat={handleRenameChat}
-              />
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+        <AnimatePresence>
+          {mobileSidebarOpen && (
+            <motion.div
+              className="fixed inset-0 z-[9999] bg-black/60 flex md:hidden"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setMobileSidebarOpen(false)}
+            >
+              <div onClick={e => e.stopPropagation()} className="h-full">
+                <Sidebar
+                  chats={chats}
+                  activeChatId={activeChatId}
+                  renamingChatId={renamingChatId}
+                  onNewChat={handleNewChat}
+                  onSelectChat={id => {
+                    setActiveChatId(id)
+                    setMobileSidebarOpen(false)
+                  }}
+                  onDeleteChat={handleDeleteChat}
+                  onRenameChat={handleRenameChat}
+                />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
 
       <motion.div
         className="flex flex-col flex-1"

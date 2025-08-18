@@ -2,6 +2,7 @@ import './globals.css'
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import ServiceWorkerProvider from '@/components/ServiceWorkerProvider'
+import { Toaster } from 'sonner'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -24,6 +25,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className={inter.className}>
         <ServiceWorkerProvider />
+        <Toaster position="top-right" richColors closeButton />
         {children}
       </body>
     </html>
