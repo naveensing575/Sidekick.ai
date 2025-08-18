@@ -1,7 +1,7 @@
 'use client'
 
 import { Markdown } from '@/utils/markdown'
-import { Role } from './ChatWindow'
+import { Role } from './chat/ChatWindow'
 import { cn } from '@/lib/utils'
 import { motion } from 'framer-motion'
 import { TextCursor  } from "lucide-react"

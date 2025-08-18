@@ -3,11 +3,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, createChat, addMessage, getMessages } from '@/lib/db'
-import Sidebar from './Sidebar'
-import MessageList from './MessageList'
-import InputBox from './InputBox'
+import Sidebar from '../Sidebar'
+import MessageList from '../MessageList'
+import InputBox from '../InputBox'
 import { streamChat } from '@/lib/ai'
 import { motion, AnimatePresence } from 'framer-motion'
+import ErrorAlert from './ErrorAlert'
 
 export type Role = 'system' | 'user' | 'assistant'
 
@@ -32,6 +33,7 @@ You are Sidekick, a helpful AI assistant.
 - Avoid repetitive or excessive emojis (use at most one if necessary).
 `
 
+// ensures emojis aren’t spammy
 function sanitizeResponse(text: string) {
   return text.replace(/(\p{Emoji_Presentation}|\p{Emoji}\uFE0F){3,}/gu, match => match[0])
 }
@@ -43,19 +45,21 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
   const [footerHeight, setFooterHeight] = useState(0)
   const [renamingChatId, setRenamingChatId] = useState<string | null>(null)
   const [liveMessage, setLiveMessage] = useState<string | null>(null)
+  const [error, setError] = useState<string>('')
 
   const chatRef = useRef<HTMLDivElement | null>(null)
   const footerRef = useRef<HTMLDivElement | null>(null)
   const inputRef = useRef<HTMLTextAreaElement | null>(null)
   const controllerRef = useRef<AbortController | null>(null)
 
+  // Messages for current chat
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const messages = useLiveQuery(() => {
     if (!activeChatId) return Promise.resolve([])
     return getMessages(activeChatId)
   }, [activeChatId]) ?? []
 
-  // restore chatId
+  // Restore last chatId from localStorage
   useEffect(() => {
     if (!chatId) {
       const saved = localStorage.getItem('activeChatId')
@@ -67,7 +71,7 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
     if (activeChatId) localStorage.setItem('activeChatId', activeChatId)
   }, [activeChatId])
 
-  // load chats
+  // Load chats from DB
   useEffect(() => {
     const load = async () => {
       const all = await db.chats.orderBy('updatedAt').reverse().toArray()
@@ -77,11 +81,12 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
     load()
   }, [activeChatId])
 
+  // Auto-focus input on chat change
   useEffect(() => {
     inputRef.current?.focus()
   }, [activeChatId])
 
-  // auto-create chat on typing
+  // Auto-create new chat on typing if none exists
   useEffect(() => {
     const handler = async (e: KeyboardEvent) => {
       if (!activeChatId && e.key.length === 1 && !e.metaKey && !e.ctrlKey) {
@@ -98,6 +103,7 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
     return () => window.removeEventListener('keydown', handler)
   }, [activeChatId])
 
+  // Watch footer height for scroll offset
   useEffect(() => {
     if (!footerRef.current) return
     const obs = new ResizeObserver(([entry]) => {
@@ -107,6 +113,7 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
     return () => obs.disconnect()
   }, [])
 
+  // Auto-scroll on new messages
   useEffect(() => {
     if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight
   }, [messages, liveMessage, loading])
@@ -139,6 +146,8 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
 
   const handleSend = async (text: string) => {
     if (!text.trim() || !activeChatId) return
+    setError('') // clear previous error
+
     const userMessage: Message = { id: crypto.randomUUID(), role: 'user', content: text.trim() }
     await addMessage(activeChatId, 'user', text)
     setLoading(true)
@@ -146,7 +155,10 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
 
     const systemMessage = { id: 'system', role: 'system' as Role, content: DEFAULT_SYSTEM_PROMPT }
     const existing = await getMessages(activeChatId)
-    const chatMessages = [systemMessage, ...existing, userMessage].map(({ role, content }) => ({ role, content }))
+    const chatMessages = [systemMessage, ...existing, userMessage].map(({ role, content }) => ({
+      role,
+      content,
+    }))
 
     const controller = new AbortController()
     controllerRef.current = controller
@@ -169,18 +181,26 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
             const delta = json.choices?.[0]?.delta?.content
             if (delta) {
               fullResponse += delta
-              setLiveMessage(fullResponse) // ✅ streaming live text
+              setLiveMessage(fullResponse) // streaming
             }
-          } catch {}
+          } catch {
+            // ignore malformed events
+          }
         }
       }
-    } catch {
-      fullResponse = 'Something went wrong.'
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message || 'Something went wrong while streaming.')
+      } else {
+        setError('Something went wrong while streaming.')
+      }
     } finally {
-      if (fullResponse.trim()) {
+      if (!controller.signal.aborted && fullResponse.trim()) {
         const clean = sanitizeResponse(fullResponse)
         await addMessage(activeChatId, 'assistant', clean)
-        setLiveMessage(null) // ✅ done typing
+        setLiveMessage(null)
+
+        // ✅ Auto-rename if Untitled
         const currentChat = chats.find(c => c.id === activeChatId)
         if (currentChat && (currentChat.title === 'Untitled' || !currentChat.title)) {
           setRenamingChatId(activeChatId)
@@ -200,7 +220,11 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
               if (data.title) {
                 await db.chats.update(activeChatId, { title: data.title, updatedAt: Date.now() })
                 setChats(prev =>
-                  prev.map(c => (c.id === activeChatId ? { ...c, title: data.title, updatedAt: Date.now() } : c))
+                  prev.map(c =>
+                    c.id === activeChatId
+                      ? { ...c, title: data.title, updatedAt: Date.now() }
+                      : c
+                  )
                 )
               }
             })
@@ -243,6 +267,9 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
         >
           {chats.find(c => c.id === activeChatId)?.title || 'No Chat Selected'}
         </motion.div>
+
+        {/* Error alert */}
+        {error && <ErrorAlert message={error} />}
 
         {/* Messages */}
         <main
