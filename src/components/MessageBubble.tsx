@@ -4,16 +4,13 @@ import { Markdown } from '@/utils/markdown'
 import { Role } from './chat/ChatWindow'
 import { cn } from '@/lib/utils'
 import { motion } from 'framer-motion'
-import { TextCursor  } from "lucide-react"
 
 export default function MessageBubble({
   role,
   content,
-  isLive = false,
 }: {
   role: Role
   content: string
-  isLive?: boolean
 }) {
   const isUser = role === 'user'
 
@@ -33,7 +30,6 @@ export default function MessageBubble({
         )}
       >
         <Markdown content={content} />
-        {isLive && <TextCursor className="inline-block ml-1 h-4 w-4 animate-pulse text-gray-400" />}
       </motion.div>
     </div>
   )

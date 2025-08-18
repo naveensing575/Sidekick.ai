@@ -71,7 +71,7 @@ const InputBox = forwardRef<HTMLTextAreaElement, InputBoxProps>(
     }
 
     return (
-      <div className="flex items-end gap-2 bg-gray-800 dark:bg-[#18181c] rounded-xl px-3 py-3 transition w-full shadow-sm">
+      <div className="flex items-end gap-2 mt-4 bg-gray-800 dark:bg-[#18181c] rounded-xl px-3 py-3 transition w-full shadow-sm">
         <Textarea
           ref={inputRef}
           value={value}
