@@ -9,6 +9,7 @@ import InputBox from '../InputBox'
 import { streamChat } from '@/lib/ai'
 import { motion, AnimatePresence } from 'framer-motion'
 import ErrorAlert from './ErrorAlert'
+import { Menu } from 'lucide-react'
 
 export type Role = 'system' | 'user' | 'assistant'
 
@@ -33,7 +34,6 @@ You are Sidekick, a helpful AI assistant.
 - Avoid repetitive or excessive emojis (use at most one if necessary).
 `
 
-// ensures emojis aren’t spammy
 function sanitizeResponse(text: string) {
   return text.replace(/(\p{Emoji_Presentation}|\p{Emoji}\uFE0F){3,}/gu, match => match[0])
 }
@@ -42,24 +42,21 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
   const [chats, setChats] = useState<ChatType[]>([])
   const [activeChatId, setActiveChatId] = useState<string | null>(chatId ?? null)
   const [loading, setLoading] = useState(false)
-  const [footerHeight, setFooterHeight] = useState(0)
   const [renamingChatId, setRenamingChatId] = useState<string | null>(null)
   const [liveMessage, setLiveMessage] = useState<string | null>(null)
   const [error, setError] = useState<string>('')
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
 
   const chatRef = useRef<HTMLDivElement | null>(null)
-  const footerRef = useRef<HTMLDivElement | null>(null)
   const inputRef = useRef<HTMLTextAreaElement | null>(null)
   const controllerRef = useRef<AbortController | null>(null)
 
-  // Messages for current chat
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const messages = useLiveQuery(() => {
     if (!activeChatId) return Promise.resolve([])
     return getMessages(activeChatId)
   }, [activeChatId]) ?? []
 
-  // Restore last chatId from localStorage
   useEffect(() => {
     if (!chatId) {
       const saved = localStorage.getItem('activeChatId')
@@ -71,7 +68,6 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
     if (activeChatId) localStorage.setItem('activeChatId', activeChatId)
   }, [activeChatId])
 
-  // Load chats from DB
   useEffect(() => {
     const load = async () => {
       const all = await db.chats.orderBy('updatedAt').reverse().toArray()
@@ -81,12 +77,10 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
     load()
   }, [activeChatId])
 
-  // Auto-focus input on chat change
   useEffect(() => {
     inputRef.current?.focus()
   }, [activeChatId])
 
-  // Auto-create new chat on typing if none exists
   useEffect(() => {
     const handler = async (e: KeyboardEvent) => {
       if (!activeChatId && e.key.length === 1 && !e.metaKey && !e.ctrlKey) {
@@ -103,17 +97,6 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
     return () => window.removeEventListener('keydown', handler)
   }, [activeChatId])
 
-  // Watch footer height for scroll offset
-  useEffect(() => {
-    if (!footerRef.current) return
-    const obs = new ResizeObserver(([entry]) => {
-      setFooterHeight(entry.contentRect.height)
-    })
-    obs.observe(footerRef.current)
-    return () => obs.disconnect()
-  }, [])
-
-  // Auto-scroll on new messages
   useEffect(() => {
     if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight
   }, [messages, liveMessage, loading])
@@ -146,8 +129,7 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
 
   const handleSend = async (text: string) => {
     if (!text.trim() || !activeChatId) return
-    setError('') // clear previous error
-
+    setError('')
     const userMessage: Message = { id: crypto.randomUUID(), role: 'user', content: text.trim() }
     await addMessage(activeChatId, 'user', text)
     setLoading(true)
@@ -181,26 +163,19 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
             const delta = json.choices?.[0]?.delta?.content
             if (delta) {
               fullResponse += delta
-              setLiveMessage(fullResponse) // streaming
+              setLiveMessage(fullResponse)
             }
-          } catch {
-            // ignore malformed events
-          }
+          } catch {}
         }
       }
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message || 'Something went wrong while streaming.')
-      } else {
-        setError('Something went wrong while streaming.')
-      }
+      setError(err instanceof Error ? err.message : 'Something went wrong while streaming.')
     } finally {
       if (!controller.signal.aborted && fullResponse.trim()) {
         const clean = sanitizeResponse(fullResponse)
         await addMessage(activeChatId, 'assistant', clean)
         setLiveMessage(null)
 
-        // ✅ Auto-rename if Untitled
         const currentChat = chats.find(c => c.id === activeChatId)
         if (currentChat && (currentChat.title === 'Untitled' || !currentChat.title)) {
           setRenamingChatId(activeChatId)
@@ -238,16 +213,47 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
   }
 
   return (
-    <div className="flex h-screen bg-[#1e1e1e] text-white">
-      <Sidebar
-        chats={chats}
-        activeChatId={activeChatId}
-        renamingChatId={renamingChatId}
-        onNewChat={handleNewChat}
-        onSelectChat={id => setActiveChatId(id)}
-        onDeleteChat={handleDeleteChat}
-        onRenameChat={handleRenameChat}
-      />
+    <div className="flex h-screen w-screen bg-[#1e1e1e] text-white overflow-hidden">
+      {/* Desktop sidebar */}
+      <div className="hidden md:flex">
+        <Sidebar
+          chats={chats}
+          activeChatId={activeChatId}
+          renamingChatId={renamingChatId}
+          onNewChat={handleNewChat}
+          onSelectChat={id => setActiveChatId(id)}
+          onDeleteChat={handleDeleteChat}
+          onRenameChat={handleRenameChat}
+        />
+      </div>
+
+      {/* Mobile sidebar overlay */}
+      <AnimatePresence>
+        {mobileSidebarOpen && (
+          <motion.div
+            className="fixed inset-0 z-40 bg-black/60 flex md:hidden"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setMobileSidebarOpen(false)}
+          >
+            <div onClick={e => e.stopPropagation()} className="h-full">
+              <Sidebar
+                chats={chats}
+                activeChatId={activeChatId}
+                renamingChatId={renamingChatId}
+                onNewChat={handleNewChat}
+                onSelectChat={id => {
+                  setActiveChatId(id)
+                  setMobileSidebarOpen(false)
+                }}
+                onDeleteChat={handleDeleteChat}
+                onRenameChat={handleRenameChat}
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <motion.div
         className="flex flex-col flex-1"
@@ -259,23 +265,28 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
       >
         {/* Title bar */}
         <motion.div
-          className="flex items-center justify-center border-b border-gray-700 h-14 font-semibold text-gray-400 text-sm"
+          className="flex items-center justify-between border-b border-gray-700 h-14 px-4 font-semibold text-gray-400 text-sm"
           key={activeChatId ? chats.find(c => c.id === activeChatId)?.title : 'empty'}
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.25 }}
         >
-          {chats.find(c => c.id === activeChatId)?.title || 'No Chat Selected'}
+          <button className="md:hidden text-gray-300" onClick={() => setMobileSidebarOpen(true)}>
+            <Menu className="w-6 h-6" />
+          </button>
+          <span className="flex-1 text-center truncate">
+            {chats.find(c => c.id === activeChatId)?.title || 'No Chat Selected'}
+          </span>
+          <span className="w-6 h-6 md:hidden" />
         </motion.div>
 
-        {/* Error alert */}
+        {/* Error */}
         {error && <ErrorAlert message={error} />}
 
         {/* Messages */}
         <main
           ref={chatRef}
-          className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent"
-          style={{ paddingBottom: `${footerHeight}px` }}
+          className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent pb-20 md:pb-0"
         >
           <div className="max-w-3xl mx-auto w-full px-4 pt-4 space-y-3">
             <AnimatePresence mode="wait">
@@ -331,8 +342,22 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
           </div>
         </main>
 
-        {/* Footer */}
-        <div ref={footerRef} className="bg-[#1e1e1e] px-6 py-4">
+        {/* Mobile fixed footer */}
+        <div className="fixed bottom-0 left-0 w-full z-50 md:hidden px-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)]">
+          <div className="max-w-3xl mx-auto w-full">
+            {activeChatId && (
+              <InputBox
+                onSubmit={handleSend}
+                onAbort={() => controllerRef.current?.abort()}
+                loading={loading}
+                ref={inputRef}
+              />
+            )}
+          </div>
+        </div>
+
+       {/* Desktop inline footer */}
+        <div className="hidden md:block px-6 pb-6">
           <div className="max-w-3xl mx-auto w-full">
             {activeChatId && (
               <InputBox

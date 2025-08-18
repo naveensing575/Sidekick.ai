@@ -3,8 +3,9 @@
 
 @custom-variant dark (&:is(.dark *));
 
-body{
-  overflow: hidden;
+body {
+  @apply bg-background text-foreground;
+  /* remove overflow hidden from here */
 }
 
 @theme inline {

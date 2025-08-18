@@ -66,7 +66,7 @@ export default function Sidebar({
       animate={{ width: isOpen ? 256 : 64 }}
       transition={{ duration: 0.4, ease: 'easeInOut' }}
       className={cn(
-        'bg-[#181818] text-white border-r border-gray-700 flex flex-col'
+        'h-full md:h-screen bg-[#181818] text-white border-r border-gray-700 flex flex-col z-50' // ⬅ ensures sidebar stays above input/footer
       )}
     >
       {/* Top Header */}
