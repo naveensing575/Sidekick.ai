@@ -1,5 +1,5 @@
 import Dexie, { type EntityTable } from 'dexie'
-import type { Role } from '@/components/ChatWindow'
+import type { Role } from '@/components/chat/ChatWindow'
 
 export interface Chat {
   id: string
