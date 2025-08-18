@@ -42,6 +42,7 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
   const [loading, setLoading] = useState(false)
   const [footerHeight, setFooterHeight] = useState(0)
   const [renamingChatId, setRenamingChatId] = useState<string | null>(null)
+  const [liveMessage, setLiveMessage] = useState<string | null>(null)
 
   const chatRef = useRef<HTMLDivElement | null>(null)
   const footerRef = useRef<HTMLDivElement | null>(null)
@@ -108,7 +109,7 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
 
   useEffect(() => {
     if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight
-  }, [messages, loading])
+  }, [messages, liveMessage, loading])
 
   const handleNewChat = async () => {
     const chat = await createChat()
@@ -129,7 +130,7 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
 
   const handleRenameChat = async (id: string, newTitle: string) => {
     const trimmed = newTitle.trim()
-    if (!trimmed) return // ❌ ignore empty rename
+    if (!trimmed) return
     await db.chats.update(id, { title: trimmed, updatedAt: Date.now() })
     setChats(prev =>
       prev.map(c => (c.id === id ? { ...c, title: trimmed, updatedAt: Date.now() } : c))
@@ -141,6 +142,7 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
     const userMessage: Message = { id: crypto.randomUUID(), role: 'user', content: text.trim() }
     await addMessage(activeChatId, 'user', text)
     setLoading(true)
+    setLiveMessage(null)
 
     const systemMessage = { id: 'system', role: 'system' as Role, content: DEFAULT_SYSTEM_PROMPT }
     const existing = await getMessages(activeChatId)
@@ -165,7 +167,10 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
           try {
             const json = JSON.parse(data)
             const delta = json.choices?.[0]?.delta?.content
-            if (delta) fullResponse += delta
+            if (delta) {
+              fullResponse += delta
+              setLiveMessage(fullResponse) // ✅ streaming live text
+            }
           } catch {}
         }
       }
@@ -175,13 +180,17 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
       if (fullResponse.trim()) {
         const clean = sanitizeResponse(fullResponse)
         await addMessage(activeChatId, 'assistant', clean)
+        setLiveMessage(null) // ✅ done typing
         const currentChat = chats.find(c => c.id === activeChatId)
         if (currentChat && (currentChat.title === 'Untitled' || !currentChat.title)) {
           setRenamingChatId(activeChatId)
           fetch('/api/rename-chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chatId: activeChatId, messages: [...messages, { role: 'assistant', content: clean }] }),
+            body: JSON.stringify({
+              chatId: activeChatId,
+              messages: [...messages, { role: 'assistant', content: clean }],
+            }),
           })
             .then(async res => {
               if (!res.ok) throw new Error(await res.text())
@@ -244,8 +253,7 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
           <div className="max-w-3xl mx-auto w-full px-4 pt-4 space-y-3">
             <AnimatePresence mode="wait">
               {activeChatId ? (
-                messages.length > 0 ? (
-                  // ✅ render all messages in one MessageList (not one by one anim)
+                messages.length > 0 || liveMessage ? (
                   <motion.div
                     key="messages"
                     initial={{ opacity: 0 }}
@@ -253,7 +261,7 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.2 }}
                   >
-                    <MessageList messages={messages} />
+                    <MessageList messages={messages} liveMessage={liveMessage} />
                   </motion.div>
                 ) : (
                   <motion.div

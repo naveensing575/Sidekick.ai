@@ -3,32 +3,38 @@
 import { Markdown } from '@/utils/markdown'
 import { Role } from './ChatWindow'
 import { cn } from '@/lib/utils'
+import { motion } from 'framer-motion'
+import { TextCursor  } from "lucide-react"
 
 export default function MessageBubble({
   role,
   content,
+  isLive = false,
 }: {
   role: Role
   content: string
+  isLive?: boolean
 }) {
   const isUser = role === 'user'
 
   return (
     <div className={cn('w-full flex', isUser ? 'justify-end' : 'justify-start')}>
-      <div
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.2 }}
         className={cn(
           'px-4 py-2 rounded-2xl text-sm backdrop-blur-md',
           'whitespace-pre-wrap break-words',
+          '[&_pre]:overflow-x-auto [&_pre]:max-w-full [&_code]:whitespace-pre',
           isUser
             ? 'bg-white text-black dark:bg-white/90 max-w-1/2'
             : 'bg-gray-800/60 text-white dark:bg-gray-700/40 max-w-3xl'
         )}
-        style={{
-          wordBreak: 'break-word',
-        }}
       >
         <Markdown content={content} />
-      </div>
+        {isLive && <TextCursor className="inline-block ml-1 h-4 w-4 animate-pulse text-gray-400" />}
+      </motion.div>
     </div>
   )
 }
