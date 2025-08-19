@@ -10,6 +10,7 @@ import { streamChat } from '@/lib/ai'
 import { motion, AnimatePresence } from 'framer-motion'
 import ErrorAlert from './ErrorAlert'
 import { Menu, FileHeart} from 'lucide-react'
+import ScrollButtons from './ScrollButtons'
 
 export type Role = 'system' | 'user' | 'assistant'
 
@@ -50,7 +51,6 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
   // 🔹 Attachments moved to ChatWindow state
   const [attachments, setAttachments] = useState<File[]>([])
   const [isDragging, setIsDragging] = useState(false)
-
   const chatRef = useRef<HTMLDivElement | null>(null)
   const inputRef = useRef<HTMLTextAreaElement | null>(null)
   const controllerRef = useRef<AbortController | null>(null)
@@ -86,20 +86,25 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
   }, [activeChatId])
 
   useEffect(() => {
-    const handler = async (e: KeyboardEvent) => {
-      if (!activeChatId && e.key.length === 1 && !e.metaKey && !e.ctrlKey) {
+  const handler = async (e: KeyboardEvent) => {
+    if (e.key.length === 1 && !e.metaKey && !e.ctrlKey) {
+      if (!activeChatId) {
         e.preventDefault()
         const newChat = await createChat()
         await db.chats.update(newChat.id, { title: 'Untitled' })
         const updated = await db.chats.orderBy('updatedAt').reverse().toArray()
         setChats(updated)
         setActiveChatId(newChat.id)
-        setTimeout(() => inputRef.current?.focus(), 0)
       }
+      // Always focus the input after a key press
+      setTimeout(() => inputRef.current?.focus(), 0)
     }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [activeChatId])
+  }
+  window.addEventListener('keydown', handler)
+  return () => window.removeEventListener('keydown', handler)
+}, [activeChatId])
+
+
 
   useEffect(() => {
     if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight
@@ -380,6 +385,8 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
             )}
           </div>
         </main>
+        {/* 👇 Move ScrollButtons */}
+          <ScrollButtons containerRef={chatRef} />
 
         {/* Mobile fixed footer */}
         <div className="fixed bottom-0 left-0 w-full z-50 md:hidden px-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)]">
