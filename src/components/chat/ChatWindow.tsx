@@ -9,8 +9,9 @@ import InputBox from '../InputBox'
 import { streamChat } from '@/lib/ai'
 import { motion, AnimatePresence } from 'framer-motion'
 import ErrorAlert from './ErrorAlert'
-import { Menu, FileHeart} from 'lucide-react'
+import { Menu, FileHeart } from 'lucide-react'
 import ScrollButtons from './ScrollButtons'
+import { useRouter } from 'next/navigation'
 
 export type Role = 'system' | 'user' | 'assistant'
 
@@ -40,15 +41,15 @@ function sanitizeResponse(text: string) {
 }
 
 export default function ChatWindow({ chatId }: { chatId?: string }) {
+  const router = useRouter()
   const [chats, setChats] = useState<ChatType[]>([])
   const [activeChatId, setActiveChatId] = useState<string | null>(chatId ?? null)
   const [loading, setLoading] = useState(false)
-  const [renamingChatId, setRenamingChatId] = useState<string | null>(null)
+  const [renamingChatId, _setRenamingChatId] = useState<string | null>(null)
   const [liveMessage, setLiveMessage] = useState<string | null>(null)
   const [error, setError] = useState<string>('')
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
 
-  // 🔹 Attachments moved to ChatWindow state
   const [attachments, setAttachments] = useState<File[]>([])
   const [isDragging, setIsDragging] = useState(false)
   const chatRef = useRef<HTMLDivElement | null>(null)
@@ -56,55 +57,51 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
   const controllerRef = useRef<AbortController | null>(null)
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const messages = useLiveQuery(() => {
-    if (!activeChatId) return Promise.resolve([])
-    return getMessages(activeChatId)
-  }, [activeChatId]) ?? []
+  const messages = useLiveQuery(
+    () => (activeChatId ? getMessages(activeChatId) : Promise.resolve([])),
+    [activeChatId]
+  ) ?? []
 
   useEffect(() => {
-    if (!chatId) {
-      const saved = localStorage.getItem('activeChatId')
-      if (saved) setActiveChatId(saved)
+    if (chatId) {
+      setActiveChatId(chatId)
     }
   }, [chatId])
-
-  useEffect(() => {
-    if (activeChatId) localStorage.setItem('activeChatId', activeChatId)
-  }, [activeChatId])
 
   useEffect(() => {
     const load = async () => {
       const all = await db.chats.orderBy('updatedAt').reverse().toArray()
       setChats(all)
-      if (!activeChatId && all.length) setActiveChatId(all[0].id)
+      if (!activeChatId && all.length) {
+        setActiveChatId(all[0].id)
+        router.push(`/chat/${all[0].id}`)
+      }
     }
     load()
-  }, [activeChatId])
+  }, [activeChatId, router])
 
   useEffect(() => {
     inputRef.current?.focus()
   }, [activeChatId])
 
   useEffect(() => {
-  const handler = async (e: KeyboardEvent) => {
-    if (e.key.length === 1 && !e.metaKey && !e.ctrlKey) {
-      if (!activeChatId) {
-        e.preventDefault()
-        const newChat = await createChat()
-        await db.chats.update(newChat.id, { title: 'Untitled' })
-        const updated = await db.chats.orderBy('updatedAt').reverse().toArray()
-        setChats(updated)
-        setActiveChatId(newChat.id)
+    const handler = async (e: KeyboardEvent) => {
+      if (e.key.length === 1 && !e.metaKey && !e.ctrlKey) {
+        if (!activeChatId) {
+          e.preventDefault()
+          const newChat = await createChat()
+          await db.chats.update(newChat.id, { title: 'Untitled' })
+          const updated = await db.chats.orderBy('updatedAt').reverse().toArray()
+          setChats(updated)
+          setActiveChatId(newChat.id)
+          router.push(`/chat/${newChat.id}`)
+        }
+        setTimeout(() => inputRef.current?.focus(), 0)
       }
-      // Always focus the input after a key press
-      setTimeout(() => inputRef.current?.focus(), 0)
     }
-  }
-  window.addEventListener('keydown', handler)
-  return () => window.removeEventListener('keydown', handler)
-}, [activeChatId])
-
-
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [activeChatId, router])
 
   useEffect(() => {
     if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight
@@ -115,6 +112,7 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
     const all = await db.chats.orderBy('updatedAt').reverse().toArray()
     setChats(all)
     setActiveChatId(chat.id)
+    router.push(`/chat/${chat.id}`)
     inputRef.current?.focus()
   }
 
@@ -123,7 +121,13 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
     await db.chats.delete(id)
     const updated = await db.chats.orderBy('updatedAt').reverse().toArray()
     setChats(updated)
-    setActiveChatId(updated[0]?.id || null)
+    const next = updated[0]?.id || null
+    setActiveChatId(next)
+    if (next) {
+      router.push(`/chat/${next}`)
+    } else {
+      router.push('/')
+    }
     inputRef.current?.focus()
   }
 
@@ -184,36 +188,6 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
         const clean = sanitizeResponse(fullResponse)
         await addMessage(activeChatId, 'assistant', clean)
         setLiveMessage(null)
-
-        const currentChat = chats.find(c => c.id === activeChatId)
-        if (currentChat && (currentChat.title === 'Untitled' || !currentChat.title)) {
-          setRenamingChatId(activeChatId)
-          fetch('/api/rename-chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              chatId: activeChatId,
-              messages: [...messages, { role: 'assistant', content: clean }],
-            }),
-          })
-            .then(async res => {
-              if (!res.ok) throw new Error(await res.text())
-              return res.json()
-            })
-            .then(async data => {
-              if (data.title) {
-                await db.chats.update(activeChatId, { title: data.title, updatedAt: Date.now() })
-                setChats(prev =>
-                  prev.map(c =>
-                    c.id === activeChatId
-                      ? { ...c, title: data.title, updatedAt: Date.now() }
-                      : c
-                  )
-                )
-              }
-            })
-            .finally(() => setRenamingChatId(null))
-        }
       }
       setLoading(false)
       controllerRef.current = null
@@ -221,7 +195,6 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
     }
   }
 
-  // 🔹 Drag & drop handlers
   function handleDrop(e: React.DragEvent<HTMLDivElement>) {
     e.preventDefault()
     setIsDragging(false)
@@ -241,7 +214,6 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
       onDragLeave={() => setIsDragging(false)}
       onDrop={handleDrop}
     >
-      {/* Drag overlay */}
       <AnimatePresence>
         {isDragging && (
           <motion.div
@@ -258,20 +230,21 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
         )}
       </AnimatePresence>
 
-      {/* Desktop sidebar */}
       <div className="hidden md:flex">
         <Sidebar
           chats={chats}
           activeChatId={activeChatId}
           renamingChatId={renamingChatId}
           onNewChat={handleNewChat}
-          onSelectChat={id => setActiveChatId(id)}
+          onSelectChat={id => {
+            setActiveChatId(id)
+            router.push(`/chat/${id}`)
+          }}
           onDeleteChat={handleDeleteChat}
           onRenameChat={handleRenameChat}
         />
       </div>
 
-      {/* Mobile sidebar overlay */}
       <AnimatePresence>
         {mobileSidebarOpen && (
           <motion.div
@@ -289,6 +262,7 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
                 onNewChat={handleNewChat}
                 onSelectChat={id => {
                   setActiveChatId(id)
+                  router.push(`/chat/${id}`)
                   setMobileSidebarOpen(false)
                 }}
                 onDeleteChat={handleDeleteChat}
@@ -307,7 +281,6 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
         exit={{ opacity: 0, x: -20 }}
         transition={{ duration: 0.3, ease: 'easeOut' }}
       >
-        {/* Title bar */}
         <motion.div
           className="flex items-center justify-between border-b border-gray-700 h-14 px-4 font-semibold text-gray-400 text-sm"
           key={activeChatId ? chats.find(c => c.id === activeChatId)?.title : 'empty'}
@@ -324,10 +297,8 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
           <span className="w-6 h-6 md:hidden" />
         </motion.div>
 
-        {/* Error */}
         {error && <ErrorAlert message={error} />}
 
-        {/* Messages */}
         <main
           ref={chatRef}
           className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent pb-20 md:pb-0"
@@ -385,10 +356,9 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
             )}
           </div>
         </main>
-        {/* 👇 Move ScrollButtons */}
-          <ScrollButtons containerRef={chatRef} />
 
-        {/* Mobile fixed footer */}
+        <ScrollButtons containerRef={chatRef} />
+
         <div className="fixed bottom-0 left-0 w-full z-50 md:hidden px-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)]">
           <div className="max-w-3xl mx-auto w-full">
             {activeChatId && (
@@ -404,7 +374,6 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
           </div>
         </div>
 
-        {/* Desktop inline footer */}
         <div className="hidden md:block px-6 pb-6">
           <div className="max-w-3xl mx-auto w-full">
             {activeChatId && (
