@@ -10,6 +10,7 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { Square, SendHorizonal } from 'lucide-react'
+import AttachmentButton from './AttachmentButton'
 
 interface InputBoxProps {
   onSubmit: (text: string) => void
@@ -72,6 +73,13 @@ const InputBox = forwardRef<HTMLTextAreaElement, InputBoxProps>(
 
     return (
       <div className="flex items-end gap-2 mt-4 bg-gray-800 dark:bg-[#18181c] rounded-xl px-3 py-3 transition w-full shadow-sm">
+        {/* Attachment button (opens context menu) */}
+        <AttachmentButton
+          onSelectFiles={(files) => console.log('📂 Files selected:', files)}
+          onSelectMedia={(files) => console.log('📸 Media selected:', files)}
+        />
+
+        {/* Textarea */}
         <Textarea
           ref={inputRef}
           value={value}
@@ -79,10 +87,11 @@ const InputBox = forwardRef<HTMLTextAreaElement, InputBoxProps>(
           onKeyDown={handleKeyDown}
           placeholder="Type a message…"
           rows={1}
-          className="resize-none bg-transparent text-base text-white placeholder-gray-400 no-scrollbar max-h-40"
-          style={{ minHeight: '2.5rem', paddingRight: '2.5rem' }}
+          className="resize-none bg-transparent text-base text-white placeholder-gray-400 no-scrollbar max-h-40 flex-1"
+          style={{ minHeight: '2.5rem' }}
         />
 
+        {/* Action button: Stop or Send */}
         {loading ? (
           <Button
             type="button"
@@ -97,7 +106,7 @@ const InputBox = forwardRef<HTMLTextAreaElement, InputBoxProps>(
           <Button
             type="button"
             onClick={submit}
-            disabled={!value.trim() || loading} // disable when loading too
+            disabled={!value.trim() || loading}
             variant="default"
             className="rounded-full p-2"
             aria-label="Send"
