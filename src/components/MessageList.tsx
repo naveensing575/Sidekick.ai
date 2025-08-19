@@ -10,7 +10,7 @@ export default function MessageList({
   liveMessage?: string | null
 }) {
   return (
-    <div role="list" className="flex flex-col gap-3">
+    <div role="list" className="flex flex-col gap-3 mb-4">
       {messages.map((msg) => (
         <MessageBubble
           key={msg.id}

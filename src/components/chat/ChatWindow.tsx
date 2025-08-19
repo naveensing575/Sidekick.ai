@@ -9,7 +9,7 @@ import InputBox from '../InputBox'
 import { streamChat } from '@/lib/ai'
 import { motion, AnimatePresence } from 'framer-motion'
 import ErrorAlert from './ErrorAlert'
-import { Menu } from 'lucide-react'
+import { Menu, FileHeart} from 'lucide-react'
 
 export type Role = 'system' | 'user' | 'assistant'
 
@@ -46,6 +46,10 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
   const [liveMessage, setLiveMessage] = useState<string | null>(null)
   const [error, setError] = useState<string>('')
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
+
+  // 🔹 Attachments moved to ChatWindow state
+  const [attachments, setAttachments] = useState<File[]>([])
+  const [isDragging, setIsDragging] = useState(false)
 
   const chatRef = useRef<HTMLDivElement | null>(null)
   const inputRef = useRef<HTMLTextAreaElement | null>(null)
@@ -212,8 +216,43 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
     }
   }
 
+  // 🔹 Drag & drop handlers
+  function handleDrop(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault()
+    setIsDragging(false)
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      setAttachments(prev => [...prev, ...Array.from(e.dataTransfer.files)])
+      e.dataTransfer.clearData()
+    }
+  }
+
   return (
-    <div className="flex h-screen w-screen bg-[#1e1e1e] text-white overflow-hidden">
+    <div
+      className="flex h-screen w-screen bg-[#1e1e1e] text-white overflow-hidden relative"
+      onDragOver={e => {
+        e.preventDefault()
+        setIsDragging(true)
+      }}
+      onDragLeave={() => setIsDragging(false)}
+      onDrop={handleDrop}
+    >
+      {/* Drag overlay */}
+      <AnimatePresence>
+        {isDragging && (
+          <motion.div
+            className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/60"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <FileHeart className="w-16 h-16 text-slate-300 mb-4" />
+            <div className="text-lg font-semibold text-white bg-slate-800 px-6 py-3 rounded-lg shadow-lg">
+              Drop files to attach
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Desktop sidebar */}
       <div className="hidden md:flex">
         <Sidebar
@@ -228,33 +267,32 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
       </div>
 
       {/* Mobile sidebar overlay */}
-        <AnimatePresence>
-          {mobileSidebarOpen && (
-            <motion.div
-              className="fixed inset-0 z-[9999] bg-black/60 flex md:hidden"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setMobileSidebarOpen(false)}
-            >
-              <div onClick={e => e.stopPropagation()} className="h-full">
-                <Sidebar
-                  chats={chats}
-                  activeChatId={activeChatId}
-                  renamingChatId={renamingChatId}
-                  onNewChat={handleNewChat}
-                  onSelectChat={id => {
-                    setActiveChatId(id)
-                    setMobileSidebarOpen(false)
-                  }}
-                  onDeleteChat={handleDeleteChat}
-                  onRenameChat={handleRenameChat}
-                />
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
+      <AnimatePresence>
+        {mobileSidebarOpen && (
+          <motion.div
+            className="fixed inset-0 z-[9999] bg-black/60 flex md:hidden"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setMobileSidebarOpen(false)}
+          >
+            <div onClick={e => e.stopPropagation()} className="h-full">
+              <Sidebar
+                chats={chats}
+                activeChatId={activeChatId}
+                renamingChatId={renamingChatId}
+                onNewChat={handleNewChat}
+                onSelectChat={id => {
+                  setActiveChatId(id)
+                  setMobileSidebarOpen(false)
+                }}
+                onDeleteChat={handleDeleteChat}
+                onRenameChat={handleRenameChat}
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <motion.div
         className="flex flex-col flex-1"
@@ -352,12 +390,14 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
                 onAbort={() => controllerRef.current?.abort()}
                 loading={loading}
                 ref={inputRef}
+                attachments={attachments}
+                setAttachments={setAttachments}
               />
             )}
           </div>
         </div>
 
-       {/* Desktop inline footer */}
+        {/* Desktop inline footer */}
         <div className="hidden md:block px-6 pb-6">
           <div className="max-w-3xl mx-auto w-full">
             {activeChatId && (
@@ -366,6 +406,8 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
                 onAbort={() => controllerRef.current?.abort()}
                 loading={loading}
                 ref={inputRef}
+                attachments={attachments}
+                setAttachments={setAttachments}
               />
             )}
           </div>

@@ -17,12 +17,13 @@ interface InputBoxProps {
   onSubmit: (text: string) => void
   loading: boolean
   onAbort?: () => void
+  attachments: File[]
+  setAttachments: (files: File[]) => void
 }
 
 const InputBox = forwardRef<HTMLTextAreaElement, InputBoxProps>(
-  ({ onSubmit, loading, onAbort }, ref) => {
+  ({ onSubmit, loading, onAbort, attachments, setAttachments }, ref) => {
     const [value, setValue] = useState('')
-    const [attachments, setAttachments] = useState<File[]>([])
     const inputRef = useRef<HTMLTextAreaElement | null>(null)
     useImperativeHandle(ref, () => inputRef.current!)
 
@@ -32,28 +33,6 @@ const InputBox = forwardRef<HTMLTextAreaElement, InputBoxProps>(
       el.style.height = 'auto'
       el.style.height = `${el.scrollHeight}px`
     }, [value])
-
-    useEffect(() => {
-      const handleKeyDown = (e: KeyboardEvent) => {
-        const target = e.target as HTMLElement
-        if (
-          target.tagName === 'INPUT' ||
-          target.tagName === 'TEXTAREA' ||
-          e.metaKey ||
-          e.ctrlKey ||
-          e.altKey
-        ) {
-          return
-        }
-        if (e.key.length === 1) {
-          e.preventDefault()
-          inputRef.current?.focus()
-          setValue((prev) => prev + e.key)
-        }
-      }
-      window.addEventListener('keydown', handleKeyDown)
-      return () => window.removeEventListener('keydown', handleKeyDown)
-    }, [])
 
     function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
       if (e.key === 'Enter' && !e.shiftKey) {
@@ -72,10 +51,10 @@ const InputBox = forwardRef<HTMLTextAreaElement, InputBoxProps>(
     }
 
     return (
-      <div className="w-full flex flex-col gap-3">
-        {/* Attachments row */}
+      <div className="flex flex-col gap-2 bg-slate-800 rounded-xl px-3 py-2 shadow-sm w-full">
+        {/* Attachments inside input */}
         {attachments.length > 0 && (
-          <div className="bg-slate-800 p-2 rounded-lg flex gap-2 flex-wrap shadow-md w-auto self-start max-w-full">
+          <div className="border-b border-slate-700 pb-2 mb-2">
             <AttachmentPreview
               files={attachments}
               onRemove={(index) =>
@@ -85,12 +64,8 @@ const InputBox = forwardRef<HTMLTextAreaElement, InputBoxProps>(
           </div>
         )}
 
-        {/* Spacer to avoid margin collapse */}
-        <div className="min-h-[4px]" />
-
         {/* Input row */}
-        <div className="flex items-end gap-2 bg-slate-800 rounded-xl px-3 py-2 shadow-sm w-full">
-          {/* Attachment button */}
+        <div className="flex items-end gap-2">
           <AttachmentButton
             onSelectFiles={(files) =>
               setAttachments([...attachments, ...Array.from(files)])
@@ -100,7 +75,6 @@ const InputBox = forwardRef<HTMLTextAreaElement, InputBoxProps>(
             }
           />
 
-          {/* Textarea */}
           <Textarea
             ref={inputRef}
             value={value}
@@ -112,7 +86,6 @@ const InputBox = forwardRef<HTMLTextAreaElement, InputBoxProps>(
             style={{ minHeight: '2.5rem' }}
           />
 
-          {/* Action button */}
           {loading ? (
             <Button
               type="button"
