@@ -12,7 +12,7 @@ export default function AttachmentPreview({ files, onRemove }: AttachmentPreview
   if (files.length === 0) return null
 
   return (
-    <div className="flex flex-wrap gap-2 mb-2">
+    <div className="flex flex-wrap gap-2 mb-2 bg-inherit">
       {files.map((file, idx) => {
         const isImage = file.type.startsWith('image/')
         const isVideo = file.type.startsWith('video/')
