@@ -54,7 +54,7 @@ export default function ScrollButtons({ containerRef }: ScrollButtonsProps) {
   }
 
   return (
-  <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 lg:ml-30">
+  <div className="fixed bottom-24 left-1/2 -translate-x-1/2 lg:ml-30">
     {direction === 'up' && (
       <button
         onClick={scrollToTop}
