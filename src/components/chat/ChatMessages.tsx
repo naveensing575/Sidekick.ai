@@ -9,13 +9,21 @@ type ChatMessagesProps = {
   messages: Message[]
   liveMessage: string | null
   loading: boolean
-  containerRef: React.RefObject<HTMLDivElement|null>
+  containerRef: React.RefObject<HTMLDivElement | null>
 }
 
-
-export default function ChatMessages({ activeChatId, messages, liveMessage, loading }: ChatMessagesProps) {
+export default function ChatMessages({
+  activeChatId,
+  messages,
+  liveMessage,
+  loading,
+  containerRef,
+}: ChatMessagesProps) {
   return (
-    <main className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent pb-20 md:pb-0">
+    <main
+      ref={containerRef}
+      className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent pb-20 md:pb-0"
+    >
       <div className="max-w-3xl mx-auto w-full px-4 pt-4 space-y-3">
         <AnimatePresence mode="wait">
           {activeChatId ? (
@@ -63,8 +71,8 @@ export default function ChatMessages({ activeChatId, messages, liveMessage, load
             exit={{ opacity: 0 }}
           >
             <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce" />
-            <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce" />
-            <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce" />
+            <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-.2s]" />
+            <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-.4s]" />
           </motion.div>
         )}
       </div>

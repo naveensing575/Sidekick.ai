@@ -8,11 +8,11 @@ import { streamChat } from '@/lib/ai'
 import { motion, AnimatePresence } from 'framer-motion'
 import ErrorAlert from './ErrorAlert'
 import { FileHeart } from 'lucide-react'
-import ScrollButtons from './ScrollButtons'
 import ChatHeader from './ChatHeader'
 import ChatMessages from './ChatMessages'
 import ChatFooter from './ChatFooter'
 import { useChats } from '@/hooks/useChats'
+import ScrollButtons from './ScrollButtons'
 
 export type Role = 'system' | 'user' | 'assistant'
 
@@ -76,11 +76,9 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
     inputRef.current?.focus()
   }, [activeChatId])
 
-  // Always scroll to bottom when messages update
   useEffect(() => {
-    if (chatRef.current) {
-      chatRef.current.scrollTop = chatRef.current.scrollHeight
-    }
+    if (!chatRef.current) return
+    chatRef.current.scrollTop = chatRef.current.scrollHeight
   }, [messages, liveMessage, loading])
 
   const handleSend = async (text: string) => {
@@ -207,7 +205,6 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
           onRenameChat={handleRenameChat}
         />
       </div>
-
       <AnimatePresence>
         {mobileSidebarOpen && (
           <motion.div
@@ -236,7 +233,7 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
       </AnimatePresence>
 
       <motion.div
-        className="flex flex-col flex-1"
+        className="flex flex-col flex-1 relative"
         key={activeChatId}
         initial={{ opacity: 0, x: 20 }}
         animate={{ opacity: 1, x: 0 }}
@@ -250,7 +247,6 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
 
         {error && <ErrorAlert message={error} />}
 
-        {/* Forward chatRef */}
         <ChatMessages
           containerRef={chatRef}
           activeChatId={activeChatId}
