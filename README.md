@@ -1,4 +1,4 @@
-# 🤖 Sidekick AI
+# Sidekick AI
 
 A **Next.js (App Router)** based multi-chat AI assistant app (like ChatGPT), deployed on **Vercel**, styled with **Tailwind** (blue/slate theme), and powered by **OpenRouter AI streaming API**.  
 Chats are persisted locally with **Dexie.js (IndexedDB)** and enhanced with **Framer Motion animations** for smooth typing effects.
