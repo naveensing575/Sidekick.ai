@@ -2,14 +2,16 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, createChat, addMessage, getMessages } from '@/lib/db'
+import { addMessage, getMessages } from '@/lib/db'
 import Sidebar from '../Sidebar'
-import MessageList from '../MessageList'
-import InputBox from '../InputBox'
 import { streamChat } from '@/lib/ai'
 import { motion, AnimatePresence } from 'framer-motion'
 import ErrorAlert from './ErrorAlert'
-import { Menu, FileHeart} from 'lucide-react'
+import { FileHeart } from 'lucide-react'
+import ChatHeader from './ChatHeader'
+import ChatMessages from './ChatMessages'
+import ChatFooter from './ChatFooter'
+import { useChats } from '@/hooks/useChats'
 import ScrollButtons from './ScrollButtons'
 
 export type Role = 'system' | 'user' | 'assistant'
@@ -40,101 +42,44 @@ function sanitizeResponse(text: string) {
 }
 
 export default function ChatWindow({ chatId }: { chatId?: string }) {
-  const [chats, setChats] = useState<ChatType[]>([])
-  const [activeChatId, setActiveChatId] = useState<string | null>(chatId ?? null)
+  const {
+    chats,
+    activeChatId,
+    setActiveChatId,
+    renamingChatId,
+    setRenamingChatId,
+    handleNewChat,
+    handleDeleteChat,
+    handleRenameChat,
+    updateChatTitle,
+  } = useChats(chatId)
+
   const [loading, setLoading] = useState(false)
-  const [renamingChatId, setRenamingChatId] = useState<string | null>(null)
   const [liveMessage, setLiveMessage] = useState<string | null>(null)
   const [error, setError] = useState<string>('')
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
-
-  // 🔹 Attachments moved to ChatWindow state
   const [attachments, setAttachments] = useState<File[]>([])
   const [isDragging, setIsDragging] = useState(false)
+
   const chatRef = useRef<HTMLDivElement | null>(null)
   const inputRef = useRef<HTMLTextAreaElement | null>(null)
   const controllerRef = useRef<AbortController | null>(null)
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const messages = useLiveQuery(() => {
-    if (!activeChatId) return Promise.resolve([])
-    return getMessages(activeChatId)
-  }, [activeChatId]) ?? []
-
-  useEffect(() => {
-    if (!chatId) {
-      const saved = localStorage.getItem('activeChatId')
-      if (saved) setActiveChatId(saved)
-    }
-  }, [chatId])
-
-  useEffect(() => {
-    if (activeChatId) localStorage.setItem('activeChatId', activeChatId)
-  }, [activeChatId])
-
-  useEffect(() => {
-    const load = async () => {
-      const all = await db.chats.orderBy('updatedAt').reverse().toArray()
-      setChats(all)
-      if (!activeChatId && all.length) setActiveChatId(all[0].id)
-    }
-    load()
-  }, [activeChatId])
+  const messages: Message[] =
+    useLiveQuery(() => {
+      if (!activeChatId) return Promise.resolve<Message[]>([])
+      return getMessages(activeChatId)
+    }, [activeChatId]) ?? []
 
   useEffect(() => {
     inputRef.current?.focus()
   }, [activeChatId])
 
   useEffect(() => {
-  const handler = async (e: KeyboardEvent) => {
-    if (e.key.length === 1 && !e.metaKey && !e.ctrlKey) {
-      if (!activeChatId) {
-        e.preventDefault()
-        const newChat = await createChat()
-        await db.chats.update(newChat.id, { title: 'Untitled' })
-        const updated = await db.chats.orderBy('updatedAt').reverse().toArray()
-        setChats(updated)
-        setActiveChatId(newChat.id)
-      }
-      // Always focus the input after a key press
-      setTimeout(() => inputRef.current?.focus(), 0)
-    }
-  }
-  window.addEventListener('keydown', handler)
-  return () => window.removeEventListener('keydown', handler)
-}, [activeChatId])
-
-
-
-  useEffect(() => {
-    if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight
+    if (!chatRef.current) return
+    chatRef.current.scrollTop = chatRef.current.scrollHeight
   }, [messages, liveMessage, loading])
-
-  const handleNewChat = async () => {
-    const chat = await createChat()
-    const all = await db.chats.orderBy('updatedAt').reverse().toArray()
-    setChats(all)
-    setActiveChatId(chat.id)
-    inputRef.current?.focus()
-  }
-
-  const handleDeleteChat = async (id: string) => {
-    await db.messages.where('chatId').equals(id).delete()
-    await db.chats.delete(id)
-    const updated = await db.chats.orderBy('updatedAt').reverse().toArray()
-    setChats(updated)
-    setActiveChatId(updated[0]?.id || null)
-    inputRef.current?.focus()
-  }
-
-  const handleRenameChat = async (id: string, newTitle: string) => {
-    const trimmed = newTitle.trim()
-    if (!trimmed) return
-    await db.chats.update(id, { title: trimmed, updatedAt: Date.now() })
-    setChats(prev =>
-      prev.map(c => (c.id === id ? { ...c, title: trimmed, updatedAt: Date.now() } : c))
-    )
-  }
 
   const handleSend = async (text: string) => {
     if (!text.trim() || !activeChatId) return
@@ -202,14 +147,7 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
             })
             .then(async data => {
               if (data.title) {
-                await db.chats.update(activeChatId, { title: data.title, updatedAt: Date.now() })
-                setChats(prev =>
-                  prev.map(c =>
-                    c.id === activeChatId
-                      ? { ...c, title: data.title, updatedAt: Date.now() }
-                      : c
-                  )
-                )
+                await updateChatTitle(activeChatId, data.title)
               }
             })
             .finally(() => setRenamingChatId(null))
@@ -221,7 +159,6 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
     }
   }
 
-  // 🔹 Drag & drop handlers
   function handleDrop(e: React.DragEvent<HTMLDivElement>) {
     e.preventDefault()
     setIsDragging(false)
@@ -241,7 +178,6 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
       onDragLeave={() => setIsDragging(false)}
       onDrop={handleDrop}
     >
-      {/* Drag overlay */}
       <AnimatePresence>
         {isDragging && (
           <motion.div
@@ -258,7 +194,6 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
         )}
       </AnimatePresence>
 
-      {/* Desktop sidebar */}
       <div className="hidden md:flex">
         <Sidebar
           chats={chats}
@@ -270,8 +205,6 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
           onRenameChat={handleRenameChat}
         />
       </div>
-
-      {/* Mobile sidebar overlay */}
       <AnimatePresence>
         {mobileSidebarOpen && (
           <motion.div
@@ -300,125 +233,39 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
       </AnimatePresence>
 
       <motion.div
-        className="flex flex-col flex-1"
+        className="flex flex-col flex-1 relative"
         key={activeChatId}
         initial={{ opacity: 0, x: 20 }}
         animate={{ opacity: 1, x: 0 }}
         exit={{ opacity: 0, x: -20 }}
         transition={{ duration: 0.3, ease: 'easeOut' }}
       >
-        {/* Title bar */}
-        <motion.div
-          className="flex items-center justify-between border-b border-gray-700 h-14 px-4 font-semibold text-gray-400 text-sm"
-          key={activeChatId ? chats.find(c => c.id === activeChatId)?.title : 'empty'}
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.25 }}
-        >
-          <button className="md:hidden text-gray-300" onClick={() => setMobileSidebarOpen(true)}>
-            <Menu className="w-6 h-6" />
-          </button>
-          <span className="flex-1 text-center truncate">
-            {chats.find(c => c.id === activeChatId)?.title || 'No Chat Selected'}
-          </span>
-          <span className="w-6 h-6 md:hidden" />
-        </motion.div>
+        <ChatHeader
+          title={chats.find(c => c.id === activeChatId)?.title || 'No Chat Selected'}
+          onOpenSidebar={() => setMobileSidebarOpen(true)}
+        />
 
-        {/* Error */}
         {error && <ErrorAlert message={error} />}
 
-        {/* Messages */}
-        <main
-          ref={chatRef}
-          className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent pb-20 md:pb-0"
-        >
-          <div className="max-w-3xl mx-auto w-full px-4 pt-4 space-y-3">
-            <AnimatePresence mode="wait">
-              {activeChatId ? (
-                messages.length > 0 || liveMessage ? (
-                  <motion.div
-                    key="messages"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <MessageList messages={messages} liveMessage={liveMessage} />
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="empty"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="text-center text-gray-500 mt-20"
-                  >
-                    <p>No messages yet. Say hi 👋</p>
-                  </motion.div>
-                )
-              ) : (
-                <motion.div
-                  key="welcome"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.3 }}
-                  className="text-center text-gray-500 mt-20"
-                >
-                  <h1 className="text-2xl font-bold mb-2">Welcome to Sidekick</h1>
-                  <p className="text-sm">Start a new chat or select one from the sidebar.</p>
-                </motion.div>
-              )}
-            </AnimatePresence>
+        <ChatMessages
+          containerRef={chatRef}
+          activeChatId={activeChatId}
+          messages={messages}
+          liveMessage={liveMessage}
+          loading={loading}
+        />
 
-            {loading && (
-              <motion.div
-                className="flex gap-1 px-2"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-              >
-                <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce" />
-                <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce" />
-                <div className="h-2 w-2 bg-gray-400 rounded-full animate-bounce" />
-              </motion.div>
-            )}
-          </div>
-        </main>
-        {/* 👇 Move ScrollButtons */}
-          <ScrollButtons containerRef={chatRef} />
+        <ScrollButtons containerRef={chatRef} />
 
-        {/* Mobile fixed footer */}
-        <div className="fixed bottom-0 left-0 w-full z-50 md:hidden px-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)]">
-          <div className="max-w-3xl mx-auto w-full">
-            {activeChatId && (
-              <InputBox
-                onSubmit={handleSend}
-                onAbort={() => controllerRef.current?.abort()}
-                loading={loading}
-                ref={inputRef}
-                attachments={attachments}
-                setAttachments={setAttachments}
-              />
-            )}
-          </div>
-        </div>
-
-        {/* Desktop inline footer */}
-        <div className="hidden md:block px-6 pb-6">
-          <div className="max-w-3xl mx-auto w-full">
-            {activeChatId && (
-              <InputBox
-                onSubmit={handleSend}
-                onAbort={() => controllerRef.current?.abort()}
-                loading={loading}
-                ref={inputRef}
-                attachments={attachments}
-                setAttachments={setAttachments}
-              />
-            )}
-          </div>
-        </div>
+        <ChatFooter
+          activeChatId={activeChatId}
+          onSubmit={handleSend}
+          onAbort={() => controllerRef.current?.abort()}
+          loading={loading}
+          inputRef={inputRef}
+          attachments={attachments}
+          setAttachments={setAttachments}
+        />
       </motion.div>
     </div>
   )
