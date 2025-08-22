@@ -5,7 +5,7 @@ Chats are persisted locally with **Dexie.js (IndexedDB)** and enhanced with **Fr
 
 ---
 
-## 🚀 Features
+## Features
 
 - **Multi-chat sessions** — switch between conversations easily  
 - **Persistent storage** — chats/messages saved with Dexie.js (IndexedDB)  
@@ -19,7 +19,7 @@ Chats are persisted locally with **Dexie.js (IndexedDB)** and enhanced with **Fr
 
 ---
 
-## 🏗️ Tech Stack
+## Tech Stack
 
 - **Frontend**: Next.js (App Router), TypeScript, Tailwind CSS  
 - **Database**: Dexie.js (IndexedDB)  
@@ -49,7 +49,7 @@ Chats are persisted locally with **Dexie.js (IndexedDB)** and enhanced with **Fr
 
 ---
 
-## ⚡ Getting Started
+## Getting Started
 
 ### 1. Clone the repo
 
@@ -91,30 +91,20 @@ Deployed on **Vercel** (auto from GitHub recommended).
 
 ---
 
-## ✅ Completed Work
+## Completed Work
 
 - Project structure with App Router  
 - Dexie.js persistence for chats  
 - OpenRouter streaming integration  
 - Auto chat title generation  
 - Framer Motion animations for assistant responses  
-- Sidebar rename/delete  
+- Sidebar rename/delete
 - Tailwind blue/slate theme  
 - PWA setup (`next-pwa`)  
-- Deployment on Vercel fixed (no blank screen issue)  
+- Deployment on Vercel  
 
 ---
 
-## 🔧 Next Improvements
-
-- [ ] Add AbortController cleanup for streaming  
-- [ ] Show error states in UI for failed responses  
-- [ ] Add settings (theme toggle, model selection)  
-- [ ] User auth & sync chats  
-- [ ] Export chats to Markdown/PDF  
-
----
-
-## 📜 License
+## License
 
 MIT © 2025 — Sidekick AI
