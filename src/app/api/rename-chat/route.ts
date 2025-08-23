@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import type { Message } from '@/components/chat/ChatWindow'
+import type { Message } from '@/types/chat'
 
 export async function POST(req: NextRequest) {
   const body = await req.json()

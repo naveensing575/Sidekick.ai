@@ -1,4 +1,4 @@
-import type { Message } from './ChatWindow'
+import type { Message } from '@/types/chat'
 import MessageBubble from './MessageBubble'
 import React from 'react'
 
