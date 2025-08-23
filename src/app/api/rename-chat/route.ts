@@ -1,8 +1,9 @@
 import { NextRequest } from 'next/server'
+import type { Message } from '@/components/chat/ChatWindow'
 
 export async function POST(req: NextRequest) {
   const body = await req.json()
-  const { chatId, messages } = body
+  const { chatId, messages } = body as { chatId: string; messages: Message[] }
 
   if (!chatId || !messages) {
     return new Response('Missing chatId or messages', { status: 400 })
@@ -13,9 +14,10 @@ export async function POST(req: NextRequest) {
     return new Response('Missing API key', { status: 500 })
   }
 
-  // Take last 8 messages max for context
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const context = messages.slice(-8).map((m: any) => `${m.role}: ${m.content}`).join('\n')
+  const context = messages
+    .slice(-8)
+    .map((m: Message) => `${m.role}: ${m.content}`)
+    .join('\n')
 
   const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
@@ -29,16 +31,19 @@ export async function POST(req: NextRequest) {
         {
           role: 'system',
           content:
-            'You are a helpful AI that creates concise and descriptive chat titles. ' +
-            'Rules: Only output ONE title, 2–4 words long, no punctuation, no numbering, no quotes, no markdown.',
+            'You are a helpful assistant that generates sidebar chat titles. ' +
+            'Rules: ONLY output one short title, strictly 3 words only. ' +
+            'Do not add punctuation at the end. ' +
+            'No numbering, no quotes, no extra text. ' +
+            'Return only the title itself and should make sense in 3 words of whole chat.',
         },
         {
           role: 'user',
-          content: `Conversation:\n${context}\n\nReturn only the title.`,
+          content: `Conversation:\n${context}\n\nReturn ONLY the 3 words only title:`,
         },
       ],
-      max_tokens: 20,
-      temperature: 0.5,
+      max_tokens: 15,
+      temperature: 0.3,
     }),
   })
 
@@ -48,11 +53,19 @@ export async function POST(req: NextRequest) {
   }
 
   const data = await res.json()
-
   let title = data?.choices?.[0]?.message?.content?.trim() || 'Untitled'
 
-  // Strip quotes, markdown, numbers, colons
-  title = title.replace(/^["']|["']$/g, '').replace(/[:*#`]/g, '')
+  title = title
+    .replace(/^["']|["']$/g, '')
+    .replace(/[:*#`]/g, '')
+    .replace(/[.,;:!?-]+$/g, '')
+
+  const words = title.split(/\s+/).filter(Boolean)
+  if (words.length > 4) {
+    title = words.slice(0, 4).join(' ')
+  } else if (words.length < 2) {
+    title = words.join(' ') || 'Untitled Chat'
+  }
 
   return Response.json({ title })
 }
