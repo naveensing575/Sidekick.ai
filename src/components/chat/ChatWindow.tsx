@@ -38,6 +38,7 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
   const { loading, liveMessage, error, handleSend, handleAbort } =
     useMessageStream(activeChatId, chats, setRenamingChatId, updateChatTitle)
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const messages: Message[] =
     useLiveQuery(() => {
       if (!activeChatId) return Promise.resolve<Message[]>([])
