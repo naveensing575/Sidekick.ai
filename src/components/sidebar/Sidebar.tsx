@@ -47,7 +47,7 @@ export default function Sidebar({
       initial={{ width: isOpen ? 64 : 16 }}
       animate={{ width: isOpen ? 256 : 64 }}
       transition={{ duration: 0.4, ease: 'easeInOut' }}
-      className={cn('h-full md:h-screen bg-[#181818] text-white border-r border-gray-700 flex flex-col z-[9999]')}
+      className={cn('h-full md:h-screen bg-[#181818] text-white border-r border-gray-700 flex flex-col z-[50]')}
     >
       <div className="flex items-center justify-between h-14 px-4 border-b border-gray-700 bg-[#202020] mb-2">
         <AnimatePresence mode="wait">
@@ -171,7 +171,7 @@ export default function Sidebar({
                 </motion.div>
               </ContextMenuTrigger>
 
-              <ContextMenuContent className="z-[10000]">
+              <ContextMenuContent className="z-[100]">
                 <ContextMenuItem onClick={() => startEditing(chat.id, chat.title)}>
                   <Pencil className="w-4 h-4 mr-2" /> Rename
                 </ContextMenuItem>

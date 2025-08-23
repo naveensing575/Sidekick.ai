@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { db, createChat } from '@/lib/db'
-import type { ChatType } from '@/types/chat'
+import { ChatType } from '@/types/chat'
 
 export function useChats(initialChatId?: string) {
   const [chats, setChats] = useState<ChatType[]>([])
@@ -29,15 +29,13 @@ export function useChats(initialChatId?: string) {
     if (activeChatId) localStorage.setItem('activeChatId', activeChatId)
   }, [activeChatId])
 
-  
-  const handleNewChat = async (): Promise<ChatType> => {
+  const handleNewChat = async () => {
     const chat = await createChat()
     const all = await db.chats.orderBy('updatedAt').reverse().toArray()
     setChats(all)
     setActiveChatId(chat.id)
-    return chat as ChatType
+    return chat
   }
-
 
   const updateChatTitle = async (id: string, title: string) => {
     await db.chats.update(id, { title, updatedAt: Date.now() })
