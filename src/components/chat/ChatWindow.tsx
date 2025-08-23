@@ -215,7 +215,7 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
         transition={{ duration: 0.3, ease: 'easeOut' }}
       >
         <ChatHeader
-          title={chats.find(c => c.id === activeChatId)?.title || 'No Chat Selected'}
+          title={chats.find(c => c.id === activeChatId)?.title || ''}
           onOpenSidebar={() => setMobileSidebarOpen(true)}
         />
 
@@ -239,6 +239,7 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
               inputRef={inputRef}
               attachments={attachments}
               setAttachments={setAttachments}
+              messages={messages}   // ✅ only here
             />
           </>
         ) : (
@@ -251,6 +252,7 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
             setAttachments={setAttachments}
           />
         )}
+
       </motion.div>
     </div>
   )

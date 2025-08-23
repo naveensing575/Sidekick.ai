@@ -4,11 +4,13 @@ import { Menu } from 'lucide-react'
 import { motion } from 'framer-motion'
 
 type ChatHeaderProps = {
-  title: string
+  title?: string
   onOpenSidebar: () => void
 }
 
 export default function ChatHeader({ title, onOpenSidebar }: ChatHeaderProps) {
+  if (!title?.trim()) return null
+
   return (
     <motion.div
       className="flex items-center justify-between border-b border-gray-700 h-14 px-4 font-semibold text-gray-400 text-sm"
@@ -20,9 +22,7 @@ export default function ChatHeader({ title, onOpenSidebar }: ChatHeaderProps) {
       <button className="md:hidden text-gray-300" onClick={onOpenSidebar}>
         <Menu className="w-6 h-6" />
       </button>
-      <span className="flex-1 text-center truncate">
-        {title || 'No Chat Selected'}
-      </span>
+      <span className="flex-1 text-center truncate">{title}</span>
       <span className="w-6 h-6 md:hidden" />
     </motion.div>
   )

@@ -1,6 +1,7 @@
 'use client'
 
 import InputBox from '@/components/inputBox/InputBox'
+import type { Message } from '@/types/chat'
 
 type ChatFooterProps = {
   activeChatId: string | null
@@ -10,6 +11,7 @@ type ChatFooterProps = {
   inputRef: React.RefObject<HTMLTextAreaElement | null>
   attachments: File[]
   setAttachments: React.Dispatch<React.SetStateAction<File[]>>
+  messages?: Message[]   // 👈 add messages
 }
 
 export default function ChatFooter({
@@ -20,8 +22,10 @@ export default function ChatFooter({
   inputRef,
   attachments,
   setAttachments,
+  messages = [],
 }: ChatFooterProps) {
-  if (!activeChatId) return null
+  // hide footer if no chat or no messages yet
+  if (!activeChatId || messages.length === 0) return null
 
   return (
     <>
