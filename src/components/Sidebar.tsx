@@ -3,14 +3,7 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import {
-  Plus,
-  MessageSquare,
-  Settings,
-  Trash,
-  Pencil,
-  Loader2,
-} from 'lucide-react'
+import { Plus, MessageSquare, Settings, Trash, Pencil, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
   ContextMenu,
@@ -19,6 +12,7 @@ import {
   ContextMenuTrigger,
 } from '@/components/ui/context-menu'
 import { motion, AnimatePresence } from 'framer-motion'
+import ConfirmDialog from './ConfirmDialog'
 
 interface SidebarProps {
   chats: { id: string; title: string }[]
@@ -42,6 +36,8 @@ export default function Sidebar({
   const [isOpen, setIsOpen] = useState(true)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState('')
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
 
   const startEditing = (chatId: string, currentTitle: string) => {
     setEditingId(chatId)
@@ -50,13 +46,11 @@ export default function Sidebar({
 
   const saveEdit = (chatId: string) => {
     const originalTitle = chats.find((c) => c.id === chatId)?.title || ''
-
     if (editValue.trim()) {
       onRenameChat(chatId, editValue.trim())
     } else {
       setEditValue(originalTitle)
     }
-
     setEditingId(null)
   }
 
@@ -65,11 +59,8 @@ export default function Sidebar({
       initial={{ width: isOpen ? 64 : 16 }}
       animate={{ width: isOpen ? 256 : 64 }}
       transition={{ duration: 0.4, ease: 'easeInOut' }}
-      className={cn(
-        'h-full md:h-screen bg-[#181818] text-white border-r border-gray-700 flex flex-col z-[9999]' // ✅ always on top
-      )}
+      className={cn('h-full md:h-screen bg-[#181818] text-white border-r border-gray-700 flex flex-col z-[9999]')}
     >
-      {/* Top Header */}
       <div className="flex items-center justify-between h-14 px-4 border-b border-gray-700 bg-[#202020] mb-2">
         <AnimatePresence mode="wait">
           {isOpen && (
@@ -85,7 +76,6 @@ export default function Sidebar({
             </motion.span>
           )}
         </AnimatePresence>
-
         <Button
           onClick={() => setIsOpen(!isOpen)}
           className="flex items-center justify-center w-8 h-8 rounded-full bg-[#2a2a2d] hover:bg-[#3a3a3d] transition-colors duration-300 cursor-pointer"
@@ -101,7 +91,6 @@ export default function Sidebar({
         </Button>
       </div>
 
-      {/* New Chat Button */}
       <div className="p-3">
         <Button
           onClick={onNewChat}
@@ -125,7 +114,6 @@ export default function Sidebar({
         </Button>
       </div>
 
-      {/* Chat List */}
       <ScrollArea className="flex-1 px-2">
         {chats.length > 0 ? (
           chats.map((chat) => (
@@ -170,10 +158,7 @@ export default function Sidebar({
                                 if (e.key === 'Enter') saveEdit(chat.id)
                                 if (e.key === 'Escape') {
                                   setEditingId(null)
-                                  setEditValue(
-                                    chats.find((c) => c.id === chat.id)
-                                      ?.title || ''
-                                  )
+                                  setEditValue(chats.find((c) => c.id === chat.id)?.title || '')
                                 }
                               }}
                               onBlur={() => saveEdit(chat.id)}
@@ -202,19 +187,19 @@ export default function Sidebar({
               </ContextMenuTrigger>
 
               <ContextMenuContent className="z-[10000]">
-                <ContextMenuItem
-                  onClick={() => startEditing(chat.id, chat.title)}
-                >
+                <ContextMenuItem onClick={() => startEditing(chat.id, chat.title)}>
                   <Pencil className="w-4 h-4 mr-2" /> Rename
                 </ContextMenuItem>
                 <ContextMenuItem
-                  onClick={() => onDeleteChat(chat.id)}
+                  onClick={() => {
+                    setPendingDeleteId(chat.id)
+                    setConfirmOpen(true)
+                  }}
                   className="text-red-500"
                 >
                   <Trash className="w-4 h-4 mr-2" /> Delete
                 </ContextMenuItem>
               </ContextMenuContent>
-
             </ContextMenu>
           ))
         ) : (
@@ -233,7 +218,6 @@ export default function Sidebar({
         )}
       </ScrollArea>
 
-      {/* Settings */}
       <div className="p-3 border-t border-gray-700">
         <Button
           variant="ghost"
@@ -255,6 +239,19 @@ export default function Sidebar({
           </AnimatePresence>
         </Button>
       </div>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        onConfirm={() => {
+          if (pendingDeleteId) {
+            onDeleteChat(pendingDeleteId)
+            setPendingDeleteId(null)
+          }
+        }}
+        title="Delete Chat"
+        description="Are you sure you want to delete this chat? This action cannot be undone."
+      />
     </motion.aside>
   )
 }

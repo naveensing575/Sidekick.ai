@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
@@ -65,7 +66,6 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
   const inputRef = useRef<HTMLTextAreaElement | null>(null)
   const controllerRef = useRef<AbortController | null>(null)
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   const messages: Message[] =
     useLiveQuery(() => {
       if (!activeChatId) return Promise.resolve<Message[]>([])
@@ -80,6 +80,28 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
     if (!chatRef.current) return
     chatRef.current.scrollTop = chatRef.current.scrollHeight
   }, [messages, liveMessage, loading])
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+      if (e.key.length !== 1) return
+      if (document.activeElement !== inputRef.current) {
+        e.preventDefault()
+        inputRef.current?.focus()
+        const textarea = inputRef.current
+        if (textarea) {
+          const start = textarea.selectionStart || 0
+          const end = textarea.selectionEnd || 0
+          const value = textarea.value
+          textarea.value = value.slice(0, start) + e.key + value.slice(end)
+          textarea.setSelectionRange(start + 1, start + 1)
+          textarea.dispatchEvent(new Event('input', { bubbles: true }))
+        }
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
 
   const handleSend = async (text: string) => {
     if (!text.trim() || !activeChatId) return
@@ -205,6 +227,7 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
           onRenameChat={handleRenameChat}
         />
       </div>
+
       <AnimatePresence>
         {mobileSidebarOpen && (
           <motion.div
