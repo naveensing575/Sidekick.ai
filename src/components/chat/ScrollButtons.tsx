@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -10,34 +10,41 @@ interface ScrollButtonsProps {
 
 export default function ScrollButtons({ containerRef }: ScrollButtonsProps) {
   const [direction, setDirection] = useState<'up' | 'down' | null>(null)
+  const lastScrollTop = useRef(0)
+  const timer = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     const el = containerRef.current
     if (!el) return
 
-    let lastScrollTop = el.scrollTop
-
     function handleScroll() {
       if (!el) return
       const { scrollTop, scrollHeight, clientHeight } = el
 
-      if (scrollTop <= 0) {
+      // reset if reached top/bottom
+      if (scrollTop <= 0 || scrollTop + clientHeight >= scrollHeight) {
         setDirection(null)
-      } else if (scrollTop + clientHeight >= scrollHeight) {
-        setDirection(null)
-      } else {
-        if (scrollTop > lastScrollTop) {
-          setDirection('down')
-        } else if (scrollTop < lastScrollTop) {
-          setDirection('up')
-        }
+        return
       }
 
-      lastScrollTop = scrollTop <= 0 ? 0 : scrollTop
+      // clear old timer so it won’t flicker
+      if (timer.current) clearTimeout(timer.current)
+
+      timer.current = setTimeout(() => {
+        if (scrollTop > lastScrollTop.current) {
+          setDirection('down')
+        } else if (scrollTop < lastScrollTop.current) {
+          setDirection('up')
+        }
+        lastScrollTop.current = scrollTop
+      }, 10) // <- delay (150ms like GPT)
     }
 
     el.addEventListener('scroll', handleScroll)
-    return () => el.removeEventListener('scroll', handleScroll)
+    return () => {
+      el.removeEventListener('scroll', handleScroll)
+      if (timer.current) clearTimeout(timer.current)
+    }
   }, [containerRef])
 
   const scrollToTop = () => {
@@ -52,7 +59,7 @@ export default function ScrollButtons({ containerRef }: ScrollButtonsProps) {
 
   return (
     <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 ml-30">
-      <AnimatePresence>
+      <AnimatePresence mode="wait">
         {direction === 'up' && (
           <motion.button
             key="scroll-up"
@@ -66,8 +73,6 @@ export default function ScrollButtons({ containerRef }: ScrollButtonsProps) {
             <ChevronUp className="w-6 h-6 text-white" />
           </motion.button>
         )}
-      </AnimatePresence>
-      <AnimatePresence>
         {direction === 'down' && (
           <motion.button
             key="scroll-down"
