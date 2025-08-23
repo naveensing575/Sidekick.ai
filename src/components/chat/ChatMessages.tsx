@@ -71,7 +71,7 @@ export default function ChatMessages({
 
         {loading && (
           <motion.div
-            className="flex gap-1 px-2 justify-center"
+            className="flex gap-1 px-2 mb-2"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
