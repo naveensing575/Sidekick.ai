@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { getMessages } from '@/lib/db'
-import Sidebar from '../sidebar/Sidebar'
+import Sidebar from '@/components/sidebar/Sidebar'
 import { motion, AnimatePresence } from 'framer-motion'
 import ErrorAlert from './ErrorAlert'
 import { FileHeart } from 'lucide-react'

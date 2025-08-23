@@ -2,7 +2,7 @@
 
 import { motion, AnimatePresence } from 'framer-motion'
 import MessageList from './MessageList'
-import { Message } from './ChatWindow'
+import { Message } from '@/types/chat'
 
 type ChatMessagesProps = {
   activeChatId: string | null
