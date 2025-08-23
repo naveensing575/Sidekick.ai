@@ -35,15 +35,12 @@ export default function MessageBubble({
         animate={{ opacity: 1 }}
         transition={{ duration: 0.2 }}
         className={cn(
-          'px-4 py-2 rounded-2xl text-sm backdrop-blur-md w-full max-w-3xl',
-          'whitespace-pre-wrap break-words',
-          '[&_pre]:overflow-x-auto [&_pre]:max-w-full [&_code]:whitespace-pre',
+          'px-4 py-2 rounded-2xl text-sm backdrop-blur-md',
           isUser
-            ? 'bg-white text-black dark:bg-white/90 lg:max-w-1/2'
-            : 'bg-gray-800/60 text-white dark:bg-gray-700/40'
+            ? 'inline-block max-w-1/2 min-w-[4rem] bg-white text-black dark:bg-white/90 whitespace-pre-wrap break-normal'
+            : 'w-full max-w-3xl bg-gray-800/60 text-white dark:bg-gray-700/40 whitespace-pre-wrap break-words'
         )}
       >
-        {/* Top row with copy button only for AI messages */}
         {!isUser && (
           <div className="flex justify-end mb-2">
             <Button
@@ -69,6 +66,7 @@ export default function MessageBubble({
 
         <Markdown content={content} />
       </motion.div>
+
     </div>
   )
 }
