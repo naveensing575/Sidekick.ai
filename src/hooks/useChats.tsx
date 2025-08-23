@@ -29,12 +29,15 @@ export function useChats(initialChatId?: string) {
     if (activeChatId) localStorage.setItem('activeChatId', activeChatId)
   }, [activeChatId])
 
-  const handleNewChat = async () => {
+  
+  const handleNewChat = async (): Promise<ChatType> => {
     const chat = await createChat()
     const all = await db.chats.orderBy('updatedAt').reverse().toArray()
     setChats(all)
     setActiveChatId(chat.id)
+    return chat as ChatType
   }
+
 
   const updateChatTitle = async (id: string, title: string) => {
     await db.chats.update(id, { title, updatedAt: Date.now() })
