@@ -1,6 +1,6 @@
 'use client'
 
-import InputBox from '../InputBox'
+import InputBox from '@/components/inputBox/InputBox'
 
 type ChatFooterProps = {
   activeChatId: string | null

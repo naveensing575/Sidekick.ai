@@ -1,12 +1,12 @@
 'use client'
 
 import { Markdown } from '@/utils/markdown'
-import { Role } from './chat/ChatWindow'
+import { Role } from '@/types/chat'
 import { cn } from '@/lib/utils'
 import { motion } from 'framer-motion'
 import { useState } from 'react'
 import { Copy, Check } from 'lucide-react'
-import { Button } from './ui/button'
+import { Button } from '@/components/ui/button'
 
 export default function MessageBubble({
   role,

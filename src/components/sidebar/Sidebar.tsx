@@ -13,9 +13,11 @@ import {
 } from '@/components/ui/context-menu'
 import { motion, AnimatePresence } from 'framer-motion'
 import ConfirmDialog from './ConfirmDialog'
+import { useChatEditing } from '@/hooks/useChatEditing'
+import type { ChatType } from '@/types/chat'
 
 interface SidebarProps {
-  chats: { id: string; title: string }[]
+  chats: ChatType[]
   activeChatId: string | null
   renamingChatId: string | null
   onNewChat: () => void
@@ -34,25 +36,11 @@ export default function Sidebar({
   onRenameChat,
 }: SidebarProps) {
   const [isOpen, setIsOpen] = useState(true)
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [editValue, setEditValue] = useState('')
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
 
-  const startEditing = (chatId: string, currentTitle: string) => {
-    setEditingId(chatId)
-    setEditValue(currentTitle)
-  }
-
-  const saveEdit = (chatId: string) => {
-    const originalTitle = chats.find((c) => c.id === chatId)?.title || ''
-    if (editValue.trim()) {
-      onRenameChat(chatId, editValue.trim())
-    } else {
-      setEditValue(originalTitle)
-    }
-    setEditingId(null)
-  }
+  const { editingId, editValue, setEditValue, startEditing, saveEdit, cancelEdit } =
+    useChatEditing(chats, onRenameChat)
 
   return (
     <motion.aside
@@ -78,7 +66,7 @@ export default function Sidebar({
         </AnimatePresence>
         <Button
           onClick={() => setIsOpen(!isOpen)}
-          className="flex items-center justify-center w-8 h-8 rounded-full bg-[#2a2a2d] hover:bg-[#3a3a3d] transition-colors duration-300 cursor-pointer"
+          className="flex items-center justify-center w-8 h-8 rounded-full bg-[#2a2a2d] hover:bg-[#3a3a3d]"
         >
           <span
             className={cn(
@@ -95,7 +83,7 @@ export default function Sidebar({
         <Button
           onClick={onNewChat}
           variant="secondary"
-          className="w-full justify-start gap-2 text-slate-50 bg-[#2a2a2d] hover:bg-[#343437] transition-colors"
+          className="w-full justify-start gap-2 text-slate-50 bg-[#2a2a2d] hover:bg-[#343437]"
         >
           <Plus className="w-4 h-4" />
           <AnimatePresence mode="wait">
@@ -116,7 +104,7 @@ export default function Sidebar({
 
       <ScrollArea className="flex-1 px-2">
         {chats.length > 0 ? (
-          chats.map((chat) => (
+          chats.map(chat => (
             <ContextMenu key={chat.id}>
               <ContextMenuTrigger asChild>
                 <motion.div
@@ -152,14 +140,11 @@ export default function Sidebar({
                           >
                             <input
                               value={editValue}
-                              onChange={(e) => setEditValue(e.target.value)}
-                              onKeyDown={(e) => {
+                              onChange={e => setEditValue(e.target.value)}
+                              onKeyDown={e => {
                                 e.stopPropagation()
                                 if (e.key === 'Enter') saveEdit(chat.id)
-                                if (e.key === 'Escape') {
-                                  setEditingId(null)
-                                  setEditValue(chats.find((c) => c.id === chat.id)?.title || '')
-                                }
+                                if (e.key === 'Escape') cancelEdit(chat.id)
                               }}
                               onBlur={() => saveEdit(chat.id)}
                               autoFocus

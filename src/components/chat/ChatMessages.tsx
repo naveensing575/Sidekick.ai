@@ -1,8 +1,8 @@
 'use client'
 
 import { motion, AnimatePresence } from 'framer-motion'
-import MessageList from '../MessageList'
-import { Message } from './ChatWindow'
+import MessageList from './MessageList'
+import { Message } from '@/types/chat'
 
 type ChatMessagesProps = {
   activeChatId: string | null
