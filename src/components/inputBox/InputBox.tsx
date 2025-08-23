@@ -19,7 +19,10 @@ interface InputBoxProps {
   onAbort?: () => void
   attachments: File[]
   setAttachments: (files: File[]) => void
+  className?: string  
+  placeholder?: string
 }
+
 
 const InputBox = forwardRef<HTMLTextAreaElement, InputBoxProps>(
   ({ onSubmit, loading, onAbort, attachments, setAttachments }, ref) => {
