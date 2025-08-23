@@ -10,6 +10,7 @@ import { FileHeart } from 'lucide-react'
 import ChatHeader from './ChatHeader'
 import ChatMessages from './ChatMessages'
 import ChatFooter from './ChatFooter'
+import HeroInput from './HeroInput'
 import { useChats } from '@/hooks/useChats'
 import { useMessageStream } from '@/hooks/useMessageStream'
 import ScrollButtons from './ScrollButtons'
@@ -37,7 +38,6 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
   const { loading, liveMessage, error, handleSend, handleAbort } =
     useMessageStream(activeChatId, chats, setRenamingChatId, updateChatTitle)
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   const messages: Message[] =
     useLiveQuery(() => {
       if (!activeChatId) return Promise.resolve<Message[]>([])
@@ -82,6 +82,63 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
       setAttachments(prev => [...prev, ...Array.from(e.dataTransfer.files)])
       e.dataTransfer.clearData()
     }
+  }
+
+  // --- HeroInput submission ---
+  async function handleHeroSubmit(text: string) {
+    const newChat = await handleNewChat()
+    setActiveChatId(newChat.id)
+
+    // Call rename API immediately
+    fetch('/api/rename-chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chatId: newChat.id,
+        messages: [{ role: 'user', content: text }],
+      }),
+    })
+      .then(async res => {
+        if (!res.ok) throw new Error(await res.text())
+        return res.json()
+      })
+      .then(async data => {
+        if (data.title) {
+          await updateChatTitle(newChat.id, data.title)
+        }
+      })
+      .catch(err => console.error('Rename API error', err))
+
+    await handleSend(text, newChat.id)
+  }
+
+  // --- InputBox submission ---
+  async function handleUserSubmit(text: string) {
+    if (!activeChatId) return
+
+    // If first user message in chat → rename
+    if (messages.length === 0) {
+      fetch('/api/rename-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chatId: activeChatId,
+          messages: [{ role: 'user', content: text }],
+        }),
+      })
+        .then(async res => {
+          if (!res.ok) throw new Error(await res.text())
+          return res.json()
+        })
+        .then(async data => {
+          if (data.title) {
+            await updateChatTitle(activeChatId, data.title)
+          }
+        })
+        .catch(err => console.error('Rename API error', err))
+    }
+
+    await handleSend(text, activeChatId)
   }
 
   return (
@@ -164,25 +221,36 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
 
         {error && <ErrorAlert message={error} />}
 
-        <ChatMessages
-          containerRef={chatRef}
-          activeChatId={activeChatId}
-          messages={messages}
-          liveMessage={liveMessage}
-          loading={loading}
-        />
-
-        <ScrollButtons containerRef={chatRef} />
-
-        <ChatFooter
-          activeChatId={activeChatId}
-          onSubmit={handleSend}
-          onAbort={handleAbort}
-          loading={loading}
-          inputRef={inputRef}
-          attachments={attachments}
-          setAttachments={setAttachments}
-        />
+        {activeChatId ? (
+          <>
+            <ChatMessages
+              containerRef={chatRef}
+              activeChatId={activeChatId}
+              messages={messages}
+              liveMessage={liveMessage}
+              loading={loading}
+            />
+            <ScrollButtons containerRef={chatRef} />
+            <ChatFooter
+              activeChatId={activeChatId}
+              onSubmit={handleUserSubmit}
+              onAbort={handleAbort}
+              loading={loading}
+              inputRef={inputRef}
+              attachments={attachments}
+              setAttachments={setAttachments}
+            />
+          </>
+        ) : (
+          <HeroInput
+            onSubmit={handleHeroSubmit}
+            onAbort={handleAbort}
+            loading={loading}
+            inputRef={inputRef}
+            attachments={attachments}
+            setAttachments={setAttachments}
+          />
+        )}
       </motion.div>
     </div>
   )

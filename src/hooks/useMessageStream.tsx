@@ -29,8 +29,9 @@ export function useMessageStream(
 
   const controllerRef = useRef<AbortController | null>(null)
 
-  const handleSend = async (text: string) => {
-    if (!text.trim() || !activeChatId) return
+  const handleSend = async (text: string, chatIdOverride?: string) => {
+    const targetChatId = chatIdOverride || activeChatId
+    if (!text.trim() || !targetChatId) return
 
     setError('')
     const userMessage: Message = {
@@ -39,7 +40,7 @@ export function useMessageStream(
       content: text.trim(),
     }
 
-    await addMessage(activeChatId, 'user', userMessage.content)
+    await addMessage(targetChatId, 'user', userMessage.content)
     setLoading(true)
     setLiveMessage(null)
 
@@ -49,7 +50,7 @@ export function useMessageStream(
       content: DEFAULT_SYSTEM_PROMPT,
     }
 
-    const existing = await getMessages(activeChatId)
+    const existing = await getMessages(targetChatId)
     const chatMessages = [systemMessage, ...existing, userMessage].map(({ role, content }) => ({
       role,
       content,
@@ -92,17 +93,17 @@ export function useMessageStream(
     } finally {
       if (!controller.signal.aborted && fullResponse.trim()) {
         const clean = sanitizeResponse(fullResponse)
-        await addMessage(activeChatId, 'assistant', clean)
+        await addMessage(targetChatId, 'assistant', clean)
         setLiveMessage(null)
 
-        const currentChat = chats.find(c => c.id === activeChatId)
+        const currentChat = chats.find(c => c.id === targetChatId)
         if (currentChat && (currentChat.title === 'Untitled' || !currentChat.title)) {
-          setRenamingChatId(activeChatId)
+          setRenamingChatId(targetChatId)
           fetch('/api/rename-chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              chatId: activeChatId,
+              chatId: targetChatId,
               messages: [...existing, { role: 'assistant', content: clean }],
             }),
           })
@@ -112,7 +113,7 @@ export function useMessageStream(
             })
             .then(async data => {
               if (data.title) {
-                await updateChatTitle(activeChatId, data.title)
+                await updateChatTitle(targetChatId, data.title)
               }
             })
             .finally(() => setRenamingChatId(null))
