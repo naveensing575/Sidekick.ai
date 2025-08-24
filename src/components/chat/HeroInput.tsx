@@ -41,14 +41,13 @@ export default function HeroInput({
         </div>
         <h1 className="text-3xl font-bold mb-2">Your AI Sidekick, Always Ready</h1>
 
-        {/* Tagline with footprints walking around */}
         <div className="relative inline-block">
           <motion.p
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-[length:200%_100%] animate-shimmer text-lg font-medium"
           >
-            Smarter answers that walk with you.
+            Smarter answers that walks with you.
           </motion.p>
 
           {/* Left Footprint */}
