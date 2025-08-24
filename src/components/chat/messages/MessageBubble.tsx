@@ -37,7 +37,7 @@ export default function MessageBubble({
         className={cn(
           'px-4 py-2 rounded-2xl text-sm backdrop-blur-md',
           isUser
-            ? 'inline-block max-w-1/2 min-w-[4rem] bg-white text-black dark:bg-white/90 whitespace-pre-wrap break-normal'
+            ? 'inline-block max-w-[50%] min-w-[4rem] bg-white text-black dark:bg-white/90 whitespace-pre-wrap break-words'
             : 'w-full max-w-3xl bg-gray-800/60 text-white dark:bg-gray-700/40 whitespace-pre-wrap break-words'
         )}
       >
@@ -66,7 +66,6 @@ export default function MessageBubble({
 
         <Markdown content={content} />
       </motion.div>
-
     </div>
   )
 }
