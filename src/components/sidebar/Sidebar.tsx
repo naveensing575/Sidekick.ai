@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Plus, MessageSquare, Settings, Trash, Pencil, Loader2 } from 'lucide-react'
@@ -11,7 +11,7 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, Reorder } from 'framer-motion'
 import ConfirmDialog from './ConfirmDialog'
 import { useChatEditing } from '@/hooks/useChatEditing'
 import type { ChatType } from '@/types/chat'
@@ -24,6 +24,7 @@ interface SidebarProps {
   onSelectChat: (id: string) => void
   onDeleteChat: (id: string) => void
   onRenameChat: (id: string, newTitle: string) => void
+  onReorderChats: (newOrder: ChatType[]) => void
 }
 
 export default function Sidebar({
@@ -34,13 +35,19 @@ export default function Sidebar({
   onSelectChat,
   onDeleteChat,
   onRenameChat,
+  onReorderChats,
 }: SidebarProps) {
   const [isOpen, setIsOpen] = useState(true)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
+  const [orderedChats, setOrderedChats] = useState<ChatType[]>(chats)
 
   const { editingId, editValue, setEditValue, startEditing, saveEdit, cancelEdit } =
     useChatEditing(chats, onRenameChat)
+
+  useEffect(() => {
+    setOrderedChats(chats)
+  }, [chats])
 
   return (
     <motion.aside
@@ -103,90 +110,96 @@ export default function Sidebar({
       </div>
 
       <ScrollArea className="flex-1 px-2">
-        {chats.length > 0 ? (
-          chats.map(chat => (
-            <ContextMenu key={chat.id}>
-              <ContextMenuTrigger asChild>
-                <motion.div
-                  layout
-                  initial={{ opacity: 0, y: 5 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 5 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <Button
-                    variant={chat.id === activeChatId ? 'default' : 'ghost'}
-                    className={cn(
-                      'w-full justify-start gap-2 text-left transition-colors',
-                      chat.id === activeChatId
-                        ? 'bg-[#2f2f33] text-white hover:bg-slate-500'
-                        : 'hover:bg-slate-500/70'
-                    )}
-                    onClick={() => {
-                      if (editingId !== chat.id) onSelectChat(chat.id)
-                    }}
-                  >
-                    <MessageSquare className="w-4 h-4" />
-                    <AnimatePresence mode="wait">
-                      {isOpen &&
-                        (editingId === chat.id ? (
-                          <motion.div
-                            key="input-wrapper"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            transition={{ duration: 0.2, delay: 0.15 }}
-                            className="flex-1"
-                          >
-                            <input
-                              value={editValue}
-                              onChange={e => setEditValue(e.target.value)}
-                              onKeyDown={e => {
-                                e.stopPropagation()
-                                if (e.key === 'Enter') saveEdit(chat.id)
-                                if (e.key === 'Escape') cancelEdit(chat.id)
-                              }}
-                              onBlur={() => saveEdit(chat.id)}
-                              autoFocus
-                              className="bg-transparent text-white outline-none flex-1 px-1"
-                            />
-                          </motion.div>
-                        ) : (
-                          <motion.div
-                            key="title"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            transition={{ duration: 0.2, delay: 0.15 }}
-                            className="flex items-center gap-2 truncate"
-                          >
-                            <span className="truncate">{chat.title}</span>
-                            {renamingChatId === chat.id && (
-                              <Loader2 className="w-3 h-3 animate-spin text-gray-400" />
-                            )}
-                          </motion.div>
-                        ))}
-                    </AnimatePresence>
-                  </Button>
-                </motion.div>
-              </ContextMenuTrigger>
+        {orderedChats.length > 0 ? (
+          <Reorder.Group
+            axis="y"
+            values={orderedChats}
+            onReorder={async (newOrder) => {
+              setOrderedChats(newOrder)
+              await onReorderChats(newOrder)
+            }}
+            className="space-y-1"
+          >
+            {orderedChats.map(chat => (
+              <Reorder.Item key={chat.id} value={chat}>
+                <ContextMenu>
+                  <ContextMenuTrigger asChild>
+                    <motion.div layout>
+                      <Button
+                        variant={chat.id === activeChatId ? 'default' : 'ghost'}
+                        className={cn(
+                          'w-full justify-start gap-2 text-left transition-colors',
+                          chat.id === activeChatId
+                            ? 'bg-[#2f2f33] text-white hover:bg-slate-500'
+                            : 'hover:bg-slate-500/70'
+                        )}
+                        onClick={() => {
+                          if (editingId !== chat.id) onSelectChat(chat.id)
+                        }}
+                      >
+                        <MessageSquare className="w-4 h-4" />
+                        <AnimatePresence mode="wait">
+                          {isOpen &&
+                            (editingId === chat.id ? (
+                              <motion.div
+                                key="input-wrapper"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 0.2, delay: 0.15 }}
+                                className="flex-1"
+                              >
+                                <input
+                                  value={editValue}
+                                  onChange={e => setEditValue(e.target.value)}
+                                  onKeyDown={e => {
+                                    e.stopPropagation()
+                                    if (e.key === 'Enter') saveEdit(chat.id)
+                                    if (e.key === 'Escape') cancelEdit(chat.id)
+                                  }}
+                                  onBlur={() => saveEdit(chat.id)}
+                                  autoFocus
+                                  className="bg-transparent text-white outline-none flex-1 px-1"
+                                />
+                              </motion.div>
+                            ) : (
+                              <motion.div
+                                key="title"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 0.2, delay: 0.15 }}
+                                className="flex items-center gap-2 truncate"
+                              >
+                                <span className="truncate">{chat.title}</span>
+                                {renamingChatId === chat.id && (
+                                  <Loader2 className="w-3 h-3 animate-spin text-gray-400" />
+                                )}
+                              </motion.div>
+                            ))}
+                        </AnimatePresence>
+                      </Button>
+                    </motion.div>
+                  </ContextMenuTrigger>
 
-              <ContextMenuContent className="z-[100]">
-                <ContextMenuItem onClick={() => startEditing(chat.id, chat.title)}>
-                  <Pencil className="w-4 h-4 mr-2" /> Rename
-                </ContextMenuItem>
-                <ContextMenuItem
-                  onClick={() => {
-                    setPendingDeleteId(chat.id)
-                    setConfirmOpen(true)
-                  }}
-                  className="text-red-500"
-                >
-                  <Trash className="w-4 h-4 mr-2" /> Delete
-                </ContextMenuItem>
-              </ContextMenuContent>
-            </ContextMenu>
-          ))
+                  <ContextMenuContent className="z-[100]">
+                    <ContextMenuItem onClick={() => startEditing(chat.id, chat.title)}>
+                      <Pencil className="w-4 h-4 mr-2" /> Rename
+                    </ContextMenuItem>
+                    <ContextMenuItem
+                      onClick={() => {
+                        setPendingDeleteId(chat.id)
+                        setConfirmOpen(true)
+                      }}
+                      className="text-red-500"
+                    >
+                      <Trash className="w-4 h-4 mr-2" /> Delete
+                    </ContextMenuItem>
+                  </ContextMenuContent>
+                </ContextMenu>
+              </Reorder.Item>
+            ))}
+          </Reorder.Group>
         ) : (
           isOpen && (
             <motion.p

@@ -11,9 +11,11 @@ export function useChats(initialChatId?: string) {
 
   useEffect(() => {
     const load = async () => {
-      const all = await db.chats.orderBy('updatedAt').reverse().toArray()
+      const all = await db.chats.orderBy('order').toArray()
       setChats(all)
-      if (!activeChatId && all.length) setActiveChatId(all[0].id)
+      if (!activeChatId && all.length) {
+        setActiveChatId(all[0].id)
+      }
     }
     load()
   }, [activeChatId])
@@ -26,12 +28,16 @@ export function useChats(initialChatId?: string) {
   }, [initialChatId])
 
   useEffect(() => {
-    if (activeChatId) localStorage.setItem('activeChatId', activeChatId)
+    if (activeChatId) {
+      localStorage.setItem('activeChatId', activeChatId)
+    }
   }, [activeChatId])
 
   const handleNewChat = async () => {
-    const chat = await createChat()
-    const all = await db.chats.orderBy('updatedAt').reverse().toArray()
+    const last = await db.chats.orderBy('order').last()
+    const newOrder = last ? (last.order ?? 0) + 1 : 0
+    const chat = await createChat(newOrder)
+    const all = await db.chats.orderBy('order').toArray()
     setChats(all)
     setActiveChatId(chat.id)
     return chat
@@ -47,7 +53,7 @@ export function useChats(initialChatId?: string) {
   const handleDeleteChat = async (id: string) => {
     await db.messages.where('chatId').equals(id).delete()
     await db.chats.delete(id)
-    const updated = await db.chats.orderBy('updatedAt').reverse().toArray()
+    const updated = await db.chats.orderBy('order').toArray()
     setChats(updated)
     setActiveChatId(updated[0]?.id || null)
   }
@@ -61,6 +67,13 @@ export function useChats(initialChatId?: string) {
     )
   }
 
+  const reorderChats = async (newOrder: ChatType[]) => {
+    setChats(newOrder)
+    await Promise.all(
+      newOrder.map((chat, index) => db.chats.update(chat.id, { order: index }))
+    )
+  }
+
   return {
     chats,
     activeChatId,
@@ -71,5 +84,6 @@ export function useChats(initialChatId?: string) {
     handleDeleteChat,
     handleRenameChat,
     updateChatTitle,
+    reorderChats,
   }
 }

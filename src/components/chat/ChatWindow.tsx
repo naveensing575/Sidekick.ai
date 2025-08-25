@@ -27,6 +27,7 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
     handleDeleteChat,
     handleRenameChat,
     updateChatTitle,
+    reorderChats,
   } = useChats(chatId)
 
   const chatRef = useRef<HTMLDivElement | null>(null)
@@ -50,13 +51,12 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
   }, [activeChatId])
 
   useEffect(() => {
-  if (!chatRef.current) return
-  chatRef.current.scrollTo({
-    top: chatRef.current.scrollHeight,
-    behavior: 'smooth',
-  })
-}, [messages, liveMessage, loading])
-
+    if (!chatRef.current) return
+    chatRef.current.scrollTo({
+      top: chatRef.current.scrollHeight,
+      behavior: 'smooth',
+    })
+  }, [messages, liveMessage, loading])
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -89,39 +89,15 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
     }
   }
 
-  // --- HeroInput submission ---
   async function handleHeroSubmit(text: string) {
     const newChat = await handleNewChat()
     setActiveChatId(newChat.id)
-
-    // Call rename API immediately
-    fetch('/api/rename-chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chatId: newChat.id,
-        messages: [{ role: 'user', content: text }],
-      }),
-    })
-      .then(async res => {
-        if (!res.ok) throw new Error(await res.text())
-        return res.json()
-      })
-      .then(async data => {
-        if (data.title) {
-          await updateChatTitle(newChat.id, data.title)
-        }
-      })
-      .catch(err => console.error('Rename API error', err))
-
-    await handleSend(text, newChat.id)
+    await handleUserSubmit(text) // delegate to normal submit (avoids double rename)
   }
 
-  // --- InputBox submission ---
   async function handleUserSubmit(text: string) {
     if (!activeChatId) return
 
-    // If first user message in chat → rename
     if (messages.length === 0) {
       fetch('/api/rename-chat', {
         method: 'POST',
@@ -181,6 +157,7 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
           onSelectChat={id => setActiveChatId(id)}
           onDeleteChat={handleDeleteChat}
           onRenameChat={handleRenameChat}
+          onReorderChats={reorderChats}
         />
       </div>
 
@@ -205,6 +182,7 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
                 }}
                 onDeleteChat={handleDeleteChat}
                 onRenameChat={handleRenameChat}
+                onReorderChats={reorderChats}
               />
             </div>
           </motion.div>

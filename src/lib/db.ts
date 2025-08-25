@@ -1,30 +1,21 @@
 import Dexie, { type EntityTable } from 'dexie'
-import type { Role } from '@/types/chat'
-
-export interface Chat {
-  id: string
-  title: string
-  createdAt: number
-  updatedAt: number
-}
-
-export interface ChatMessage {
-  id: string
-  chatId: string
-  role: Role
-  content: string
-  createdAt: number
-}
+import type { Role, ChatType, ChatMessage } from '@/types/chat'
 
 class SidekickDB extends Dexie {
-  chats!: EntityTable<Chat, 'id'>
+  chats!: EntityTable<ChatType, 'id'>
   messages!: EntityTable<ChatMessage, 'id'>
 
   constructor() {
     super('SidekickDB')
-    this.version(3).stores({
-      chats: 'id, updatedAt',
+    this.version(4).stores({
+      chats: 'id, updatedAt, order',
       messages: 'id, chatId, createdAt',
+    }).upgrade(tx => {
+      return tx.table('chats').toCollection().modify(chat => {
+        if (chat.order === undefined) {
+          chat.order = chat.updatedAt ?? Date.now()
+        }
+      })
     })
   }
 }
@@ -32,13 +23,15 @@ class SidekickDB extends Dexie {
 export const db = new SidekickDB()
 
 // Create a new chat
-export async function createChat() {
+export async function createChat(order?: number) {
   const id = crypto.randomUUID()
-  const chat: Chat = {
+  const now = Date.now()
+  const chat: ChatType = {
     id,
     title: 'Untitled',
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
+    createdAt: now,
+    updatedAt: now,
+    order: order ?? now,
   }
   await db.chats.add(chat)
   return chat
@@ -49,7 +42,7 @@ export async function getChat(id: string) {
 }
 
 export async function getAllChats() {
-  return db.chats.orderBy('updatedAt').reverse().toArray()
+  return db.chats.orderBy('order').toArray()
 }
 
 export async function updateChatTitle(id: string, newTitle: string) {
