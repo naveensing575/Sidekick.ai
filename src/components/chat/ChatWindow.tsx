@@ -50,9 +50,13 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
   }, [activeChatId])
 
   useEffect(() => {
-    if (!chatRef.current) return
-    chatRef.current.scrollTop = chatRef.current.scrollHeight
-  }, [messages, liveMessage, loading])
+  if (!chatRef.current) return
+  chatRef.current.scrollTo({
+    top: chatRef.current.scrollHeight,
+    behavior: 'smooth',
+  })
+}, [messages, liveMessage, loading])
+
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
