@@ -11,4 +11,13 @@ export interface ChatType {
   title: string
   createdAt: number
   updatedAt: number
+  order: number
+}
+
+export interface ChatMessage {
+  id: string
+  chatId: string
+  role: Role
+  content: string
+  createdAt: number
 }
