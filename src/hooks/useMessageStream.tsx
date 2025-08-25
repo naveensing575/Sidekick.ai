@@ -44,13 +44,40 @@ export function useMessageStream(
     setLoading(true)
     setLiveMessage(null)
 
+    const existing = await getMessages(targetChatId)
+
+    // 🔑 Rename API first if needed
+    const currentChat = chats.find(c => c.id === targetChatId)
+    if (currentChat && (currentChat.title === 'Untitled' || !currentChat.title)) {
+      try {
+        setRenamingChatId(targetChatId)
+        const res = await fetch('/api/rename-chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chatId: targetChatId,
+            messages: [...existing, { role: 'user', content: text.trim() }],
+          }),
+        })
+        if (res.ok) {
+          const data = await res.json()
+          if (data.title) {
+            await updateChatTitle(targetChatId, data.title)
+          }
+        }
+      } catch (err) {
+        console.error('Rename API error', err)
+      } finally {
+        setRenamingChatId(null)
+      }
+    }
+
     const systemMessage: Message = {
       id: 'system',
       role: 'system' as Role,
       content: DEFAULT_SYSTEM_PROMPT,
     }
 
-    const existing = await getMessages(targetChatId)
     const chatMessages = [systemMessage, ...existing, userMessage].map(({ role, content }) => ({
       role,
       content,
@@ -95,29 +122,6 @@ export function useMessageStream(
         const clean = sanitizeResponse(fullResponse)
         await addMessage(targetChatId, 'assistant', clean)
         setLiveMessage(null)
-
-        const currentChat = chats.find(c => c.id === targetChatId)
-        if (currentChat && (currentChat.title === 'Untitled' || !currentChat.title)) {
-          setRenamingChatId(targetChatId)
-          fetch('/api/rename-chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              chatId: targetChatId,
-              messages: [...existing, { role: 'assistant', content: clean }],
-            }),
-          })
-            .then(async res => {
-              if (!res.ok) throw new Error(await res.text())
-              return res.json()
-            })
-            .then(async data => {
-              if (data.title) {
-                await updateChatTitle(targetChatId, data.title)
-              }
-            })
-            .finally(() => setRenamingChatId(null))
-        }
       }
       setLoading(false)
       controllerRef.current = null

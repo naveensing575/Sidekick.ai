@@ -89,37 +89,17 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
     }
   }
 
+  // First message from HeroInput → new chat
   async function handleHeroSubmit(text: string) {
     const newChat = await handleNewChat()
     setActiveChatId(newChat.id)
-    await handleUserSubmit(text) // delegate to normal submit (avoids double rename)
+    await handleSend(text, newChat.id) // rename + stream handled in useMessageStream
   }
 
+  // Messages in an existing chat
   async function handleUserSubmit(text: string) {
     if (!activeChatId) return
-
-    if (messages.length === 0) {
-      fetch('/api/rename-chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chatId: activeChatId,
-          messages: [{ role: 'user', content: text }],
-        }),
-      })
-        .then(async res => {
-          if (!res.ok) throw new Error(await res.text())
-          return res.json()
-        })
-        .then(async data => {
-          if (data.title) {
-            await updateChatTitle(activeChatId, data.title)
-          }
-        })
-        .catch(err => console.error('Rename API error', err))
-    }
-
-    await handleSend(text, activeChatId)
+    await handleSend(text, activeChatId) // rename + stream handled in useMessageStream
   }
 
   return (
