@@ -89,17 +89,15 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
     }
   }
 
-  // First message from HeroInput → new chat
   async function handleHeroSubmit(text: string) {
     const newChat = await handleNewChat()
     setActiveChatId(newChat.id)
-    await handleSend(text, newChat.id) // rename + stream handled in useMessageStream
+    await handleSend(text, newChat.id)
   }
 
-  // Messages in an existing chat
   async function handleUserSubmit(text: string) {
     if (!activeChatId) return
-    await handleSend(text, activeChatId) // rename + stream handled in useMessageStream
+    await handleSend(text, activeChatId)
   }
 
   return (
@@ -193,7 +191,10 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
               liveMessage={liveMessage}
               loading={loading}
             />
-            <ScrollButtons containerRef={chatRef} />
+            <ScrollButtons
+              containerRef={chatRef}
+              isStreaming={loading}
+            />
             <ChatFooter
               activeChatId={activeChatId}
               onSubmit={handleUserSubmit}

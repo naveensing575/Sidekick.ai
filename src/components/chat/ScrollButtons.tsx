@@ -6,10 +6,13 @@ import { motion, AnimatePresence } from 'framer-motion'
 
 interface ScrollButtonsProps {
   containerRef: React.RefObject<HTMLDivElement | null>
+  isStreaming: boolean
 }
 
-export default function ScrollButtons({ containerRef }: ScrollButtonsProps) {
+export default function ScrollButtons({ containerRef, isStreaming }: ScrollButtonsProps) {
   const [direction, setDirection] = useState<'up' | 'down' | null>(null)
+  const [atBottom, setAtBottom] = useState(true)
+  const [atTop, setAtTop] = useState(true)
   const lastScrollTop = useRef(0)
   const timer = useRef<NodeJS.Timeout | null>(null)
 
@@ -21,13 +24,16 @@ export default function ScrollButtons({ containerRef }: ScrollButtonsProps) {
       if (!el) return
       const { scrollTop, scrollHeight, clientHeight } = el
 
-      // reset if reached top/bottom
-      if (scrollTop <= 0 || scrollTop + clientHeight >= scrollHeight) {
+      const isBottom = scrollTop + clientHeight >= scrollHeight - 8
+      const isTop = scrollTop <= 0
+      setAtBottom(isBottom)
+      setAtTop(isTop)
+
+      if (isTop || isBottom) {
         setDirection(null)
         return
       }
 
-      // clear old timer so it won’t flicker
       if (timer.current) clearTimeout(timer.current)
 
       timer.current = setTimeout(() => {
@@ -37,7 +43,7 @@ export default function ScrollButtons({ containerRef }: ScrollButtonsProps) {
           setDirection('up')
         }
         lastScrollTop.current = scrollTop
-      }, 10) // <- delay (150ms like GPT)
+      }, 100)
     }
 
     el.addEventListener('scroll', handleScroll)
@@ -57,10 +63,12 @@ export default function ScrollButtons({ containerRef }: ScrollButtonsProps) {
     el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
   }
 
+  const shouldHide = isStreaming || atBottom || atTop
+
   return (
     <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 ml-30">
       <AnimatePresence mode="wait">
-        {direction === 'up' && (
+        {!shouldHide && direction === 'up' && (
           <motion.button
             key="scroll-up"
             onClick={scrollToTop}
@@ -73,7 +81,7 @@ export default function ScrollButtons({ containerRef }: ScrollButtonsProps) {
             <ChevronUp className="w-6 h-6 text-white" />
           </motion.button>
         )}
-        {direction === 'down' && (
+        {!shouldHide && direction === 'down' && (
           <motion.button
             key="scroll-down"
             onClick={scrollToBottom}
