@@ -8,10 +8,7 @@ body {
   height: 100%;
   margin: 0;
   background-color: #1e1e1e;
-  /* match your app bg */
   overscroll-behavior: none;
-  /* prevents "bounce" revealing white */
-  color: white;
 }
 
 @keyframes shimmer {
