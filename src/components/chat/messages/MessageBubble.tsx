@@ -35,7 +35,7 @@ export default function MessageBubble({
         animate={{ opacity: 1 }}
         transition={{ duration: 0.2 }}
         className={cn(
-          'px-4 py-2 rounded-2xl text-sm backdrop-blur-md',
+          'px-4 py-2 rounded-2xl text-sm backdrop-blur-md pb-4',
           isUser
             ? 'inline-block max-w-[50%] min-w-[4rem] bg-white text-black dark:bg-white/90 whitespace-pre-wrap break-words'
             : 'w-full max-w-3xl bg-gray-800/60 text-white dark:bg-gray-700/40 whitespace-pre-wrap break-words'
