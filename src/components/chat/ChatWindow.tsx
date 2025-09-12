@@ -167,7 +167,16 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
 
         {error && <ErrorAlert message={error} />}
 
-        {activeChatId ? (
+        {chats.length === 0 ? (
+          <HeroInput
+            onSubmit={handleHeroSubmit}
+            onAbort={handleAbort}
+            loading={loading}
+            inputRef={inputRef}
+            attachments={attachments}
+            setAttachments={setAttachments}
+          />
+        ) : activeChatId ? (
           <>
             <ChatMessages
               containerRef={chatRef}
@@ -188,13 +197,12 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
             />
           </>
         ) : (
-          <HeroInput
-            onSubmit={handleHeroSubmit}
-            onAbort={handleAbort}
-            loading={loading}
-            inputRef={inputRef}
-            attachments={attachments}
-            setAttachments={setAttachments}
+          <ChatMessages
+            containerRef={chatRef}
+            activeChatId={null}
+            messages={[]}
+            liveMessage={null}
+            loading={false}
           />
         )}
       </motion.div>
