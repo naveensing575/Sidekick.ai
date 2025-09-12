@@ -14,6 +14,8 @@ import HeroInput from './HeroInput'
 import { useChats } from '@/hooks/useChats'
 import { useMessageStream } from '@/hooks/useMessageStream'
 import ScrollButtons from './ScrollButtons'
+import { useDragAndDrop } from '@/hooks/useDragAndDrop'
+import { useAutoScroll } from '@/hooks/useAutoScroll'
 import type { Message } from '@/types/chat'
 
 export default function ChatWindow({ chatId }: { chatId?: string }) {
@@ -34,29 +36,24 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
   const inputRef = useRef<HTMLTextAreaElement | null>(null)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const [attachments, setAttachments] = useState<File[]>([])
-  const [isDragging, setIsDragging] = useState(false)
 
   const { loading, liveMessage, error, handleSend, handleAbort } =
     useMessageStream(activeChatId, chats, setRenamingChatId, updateChatTitle)
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   const messages: Message[] =
     useLiveQuery(() => {
       if (!activeChatId) return Promise.resolve<Message[]>([])
       return getMessages(activeChatId)
     }, [activeChatId]) ?? []
 
+  const { isDragging, handleDragOver, handleDragLeave, handleDrop } =
+    useDragAndDrop((files) => setAttachments((prev) => [...prev, ...files]))
+
+  useAutoScroll(chatRef, [messages, liveMessage, loading])
+
   useEffect(() => {
     inputRef.current?.focus()
   }, [activeChatId])
-
-  useEffect(() => {
-    if (!chatRef.current) return
-    chatRef.current.scrollTo({
-      top: chatRef.current.scrollHeight,
-      behavior: 'smooth',
-    })
-  }, [messages, liveMessage, loading])
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -80,15 +77,6 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
 
-  function handleDrop(e: React.DragEvent<HTMLDivElement>) {
-    e.preventDefault()
-    setIsDragging(false)
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      setAttachments(prev => [...prev, ...Array.from(e.dataTransfer.files)])
-      e.dataTransfer.clearData()
-    }
-  }
-
   async function handleHeroSubmit(text: string) {
     const newChat = await handleNewChat()
     setActiveChatId(newChat.id)
@@ -103,11 +91,8 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
   return (
     <div
       className="flex h-screen w-screen bg-[#1e1e1e] text-white overflow-hidden relative"
-      onDragOver={e => {
-        e.preventDefault()
-        setIsDragging(true)
-      }}
-      onDragLeave={() => setIsDragging(false)}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
       <AnimatePresence>
@@ -132,7 +117,7 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
           activeChatId={activeChatId}
           renamingChatId={renamingChatId}
           onNewChat={handleNewChat}
-          onSelectChat={id => setActiveChatId(id)}
+          onSelectChat={(id) => setActiveChatId(id)}
           onDeleteChat={handleDeleteChat}
           onRenameChat={handleRenameChat}
           onReorderChats={reorderChats}
@@ -148,13 +133,13 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
             exit={{ opacity: 0 }}
             onClick={() => setMobileSidebarOpen(false)}
           >
-            <div onClick={e => e.stopPropagation()} className="h-full">
+            <div onClick={(e) => e.stopPropagation()} className="h-full">
               <Sidebar
                 chats={chats}
                 activeChatId={activeChatId}
                 renamingChatId={renamingChatId}
                 onNewChat={handleNewChat}
-                onSelectChat={id => {
+                onSelectChat={(id) => {
                   setActiveChatId(id)
                   setMobileSidebarOpen(false)
                 }}
@@ -176,13 +161,22 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
         transition={{ duration: 0.3, ease: 'easeOut' }}
       >
         <ChatHeader
-          title={chats.find(c => c.id === activeChatId)?.title || 'No Chat Selected'}
+          title={chats.find((c) => c.id === activeChatId)?.title || 'No Chat Selected'}
           onOpenSidebar={() => setMobileSidebarOpen(true)}
         />
 
         {error && <ErrorAlert message={error} />}
 
-        {activeChatId ? (
+        {chats.length === 0 ? (
+          <HeroInput
+            onSubmit={handleHeroSubmit}
+            onAbort={handleAbort}
+            loading={loading}
+            inputRef={inputRef}
+            attachments={attachments}
+            setAttachments={setAttachments}
+          />
+        ) : activeChatId ? (
           <>
             <ChatMessages
               containerRef={chatRef}
@@ -191,10 +185,7 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
               liveMessage={liveMessage}
               loading={loading}
             />
-            <ScrollButtons
-              containerRef={chatRef}
-              isStreaming={loading}
-            />
+            <ScrollButtons containerRef={chatRef} isStreaming={loading} />
             <ChatFooter
               activeChatId={activeChatId}
               onSubmit={handleUserSubmit}
@@ -206,13 +197,12 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
             />
           </>
         ) : (
-          <HeroInput
-            onSubmit={handleHeroSubmit}
-            onAbort={handleAbort}
-            loading={loading}
-            inputRef={inputRef}
-            attachments={attachments}
-            setAttachments={setAttachments}
+          <ChatMessages
+            containerRef={chatRef}
+            activeChatId={null}
+            messages={[]}
+            liveMessage={null}
+            loading={false}
           />
         )}
       </motion.div>

@@ -49,6 +49,16 @@ export default function Sidebar({
     setOrderedChats(chats)
   }, [chats])
 
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        setIsOpen(prev => !prev)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
   return (
     <motion.aside
       initial={{ width: isOpen ? 64 : 16 }}
