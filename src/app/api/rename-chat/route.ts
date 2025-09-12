@@ -32,17 +32,17 @@ export async function POST(req: NextRequest) {
           role: 'system',
           content:
             'You are a helpful assistant that generates sidebar chat titles. ' +
-            'Rules: ONLY output one short title, strictly 3 words only. ' +
-            'Do not add punctuation at the end. ' +
-            'No numbering, no quotes, no extra text. ' +
-            'Return only the title itself and should make sense in 3 words of whole chat.',
+            'Rules: ONLY output exactly 3 words, no more, no less. ' +
+            'The title must make sense given the conversation. ' +
+            'No punctuation, no quotes, no numbering, no filler text. ' +
+            'Output ONLY the 3 words.',
         },
         {
           role: 'user',
-          content: `Conversation:\n${context}\n\nReturn ONLY the 3 words only title:`,
+          content: `Conversation:\n${context}\n\nReturn ONLY 3 words that form the title:`,
         },
       ],
-      max_tokens: 15,
+      max_tokens: 10,
       temperature: 0.3,
     }),
   })
@@ -53,18 +53,25 @@ export async function POST(req: NextRequest) {
   }
 
   const data = await res.json()
-  let title = data?.choices?.[0]?.message?.content?.trim() || 'Untitled'
+  let title = data?.choices?.[0]?.message?.content?.trim() || 'Untitled Chat'
 
+  // sanitize output
   title = title
     .replace(/^["']|["']$/g, '')
     .replace(/[:*#`]/g, '')
     .replace(/[.,;:!?-]+$/g, '')
 
   const words = title.split(/\s+/).filter(Boolean)
-  if (words.length > 4) {
-    title = words.slice(0, 4).join(' ')
-  } else if (words.length < 2) {
-    title = words.join(' ') || 'Untitled Chat'
+
+  // ensure exactly 3 words
+  if (words.length > 3) {
+    title = words.slice(0, 3).join(' ')
+  } else if (words.length < 3) {
+    // if model outputs too short, pad with placeholders
+    while (words.length < 3) {
+      words.push('Chat')
+    }
+    title = words.join(' ')
   }
 
   return Response.json({ title })
