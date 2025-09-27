@@ -235,7 +235,7 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.4 }}
-            className="flex-1"
+            className="flex-1 mt-20"
           >
             <HeroInput
               onSubmit={handleHeroSubmit}
