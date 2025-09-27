@@ -80,7 +80,7 @@ export default function Sidebar({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.25, delay: 0.15 }}
+              transition={{ duration: 0.2 }}
               className="flex items-center gap-3 flex-1"
             >
               <div className="w-8 h-8 rounded-lg bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center">
@@ -97,6 +97,7 @@ export default function Sidebar({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
+              transition={{ duration: 0.2, delay: 0.2 }}
               className="flex items-center justify-center w-full cursor-pointer"
               onClick={() => setIsOpen(true)}
             >
@@ -114,7 +115,7 @@ export default function Sidebar({
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.8 }}
-              transition={{ duration: 0.2 }}
+              transition={{ duration: 0.15 }}
             >
               <Button
                 onClick={() => setIsOpen(false)}
@@ -153,7 +154,7 @@ export default function Sidebar({
                   initial={{ opacity: 0, x: -5 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -5 }}
-                  transition={{ duration: 0.25, delay: 0.2 }}
+                  transition={{ duration: 0.15 }}
                 >
                   New Chat
                 </motion.span>
@@ -283,7 +284,7 @@ export default function Sidebar({
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                transition={{ duration: 0.25, delay: 0.2 }}
+                transition={{ duration: 0.15 }}
                 className="text-center py-8 px-3"
               >
                 <MessageSquare className="w-8 h-8 text-slate-500 mx-auto mb-3" />
@@ -300,7 +301,7 @@ export default function Sidebar({
           "flex items-center",
           isOpen ? "gap-3" : "justify-center"
         )}>
-          <div className="w-8 h-8 rounded-full bg-gradient-to-r from-green-400 to-blue-500 flex items-center justify-center flex-shrink-0">
+          <div className="w-8 h-8 rounded-full bg-gradient-to-r from-purple-400 to-blue-500 flex items-center justify-center flex-shrink-0">
             <User className="w-4 h-4" />
           </div>
           <AnimatePresence mode="wait">
@@ -310,7 +311,7 @@ export default function Sidebar({
                 initial={{ opacity: 0, x: -5 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -5 }}
-                transition={{ duration: 0.25, delay: 0.2 }}
+                transition={{ duration: 0.15 }}
                 className="flex-1 min-w-0"
               >
                 <p className="text-sm font-medium text-white truncate">You</p>
