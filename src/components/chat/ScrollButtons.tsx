@@ -1,5 +1,4 @@
 'use client'
-
 import { useEffect, useRef, useState } from 'react'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -23,9 +22,9 @@ export default function ScrollButtons({ containerRef, isStreaming }: ScrollButto
     function handleScroll() {
       if (!el) return
       const { scrollTop, scrollHeight, clientHeight } = el
-
       const isBottom = scrollTop + clientHeight >= scrollHeight - 8
       const isTop = scrollTop <= 0
+
       setAtBottom(isBottom)
       setAtTop(isTop)
 
@@ -35,7 +34,6 @@ export default function ScrollButtons({ containerRef, isStreaming }: ScrollButto
       }
 
       if (timer.current) clearTimeout(timer.current)
-
       timer.current = setTimeout(() => {
         if (scrollTop > lastScrollTop.current) {
           setDirection('down')
@@ -66,7 +64,7 @@ export default function ScrollButtons({ containerRef, isStreaming }: ScrollButto
   const shouldHide = isStreaming || atBottom || atTop
 
   return (
-    <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 ml-30">
+    <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 z-10">
       <AnimatePresence mode="wait">
         {!shouldHide && direction === 'up' && (
           <motion.button
@@ -76,9 +74,10 @@ export default function ScrollButtons({ containerRef, isStreaming }: ScrollButto
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
             transition={{ duration: 0.2 }}
-            className="p-3 rounded-full backdrop-blur-md bg-white/20 shadow-md hover:bg-white/30 transition"
+            className="p-3 rounded-full bg-slate-800/70 backdrop-blur-sm border border-slate-700/50 shadow-lg hover:bg-slate-700/70 transition-all"
+            aria-label="Scroll to top"
           >
-            <ChevronUp className="w-6 h-6 text-white" />
+            <ChevronUp className="w-5 h-5 text-white" />
           </motion.button>
         )}
         {!shouldHide && direction === 'down' && (
@@ -89,9 +88,10 @@ export default function ScrollButtons({ containerRef, isStreaming }: ScrollButto
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.2 }}
-            className="p-3 rounded-full backdrop-blur-md bg-white/20 shadow-md hover:bg-white/30 transition"
+            className="p-3 rounded-full bg-slate-800/70 backdrop-blur-sm border border-slate-700/50 shadow-lg hover:bg-slate-700/70 transition-all"
+            aria-label="Scroll to bottom"
           >
-            <ChevronDown className="w-6 h-6 text-white" />
+            <ChevronDown className="w-5 h-5 text-white" />
           </motion.button>
         )}
       </AnimatePresence>

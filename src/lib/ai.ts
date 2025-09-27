@@ -6,19 +6,22 @@ export interface ChatAPIMessage {
 }
 
 export async function streamChat(
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-messages: ChatAPIMessage[], _signal: AbortSignal): Promise<ReadableStreamDefaultReader<Uint8Array>> {
+  messages: ChatAPIMessage[], 
+  signal: AbortSignal
+): Promise<ReadableStreamDefaultReader<Uint8Array>> {
   const res = await fetch('/api/chat', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ messages }),
+    signal,
     cache: 'no-store',
   })
 
   if (!res.ok || !res.body) {
-    throw new Error(`AI stream error: ${res.status} ${res.statusText}`)
+    const errorText = await res.text()
+    throw new Error(`AI stream error: ${res.status} ${res.statusText} - ${errorText}`)
   }
 
   return res.body.getReader()

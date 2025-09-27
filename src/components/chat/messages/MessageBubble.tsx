@@ -1,11 +1,10 @@
 'use client'
-
 import { Markdown } from '@/utils/markdown'
 import { Role } from '@/types/chat'
 import { cn } from '@/lib/utils'
 import { motion } from 'framer-motion'
 import { useState } from 'react'
-import { Copy, Check } from 'lucide-react'
+import { Copy, Check, User, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 export default function MessageBubble({
@@ -22,50 +21,63 @@ export default function MessageBubble({
     try {
       await navigator.clipboard.writeText(content)
       setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
+      setTimeout(() => setCopied(false), 2000)
     } catch (err) {
-      console.error('Failed to copy text', err)
+      console.error(err)
     }
   }
 
   return (
-    <div className={cn('w-full flex', isUser ? 'justify-end' : 'justify-start')}>
+    <div className={cn('w-full flex gap-3 group', isUser ? 'justify-end' : 'justify-start')}>
+      {/* Assistant Avatar */}
+      {!isUser && (
+        <div className="w-8 h-8 rounded-lg bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0 mt-1">
+          <Sparkles className="w-4 h-4 text-white" />
+        </div>
+      )}
+
       <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.2 }}
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, ease: 'easeOut' }}
         className={cn(
-          'px-4 py-2 rounded-2xl text-sm backdrop-blur-md pb-4',
+          'relative rounded-2xl text-sm shadow-lg',
           isUser
-            ? 'inline-block max-w-[50%] min-w-[4rem] bg-white text-black dark:bg-white/90 whitespace-pre-wrap break-words'
-            : 'w-full max-w-3xl bg-gray-800/60 text-white dark:bg-gray-700/40 whitespace-pre-wrap break-words'
+            ? 'max-w-[70%] bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-3'
+            : 'max-w-[85%] bg-slate-800/70 backdrop-blur-sm border border-slate-700/50 text-white px-4 py-3'
         )}
       >
+        {/* Copy Button for Assistant Messages */}
         {!isUser && (
-          <div className="flex justify-end mb-2">
+          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
             <Button
               onClick={handleCopy}
               size="sm"
-              variant="outline"
-              className="h-5 px-1 py-1 text-xs border-white/30 text-white bg-transparent hover:bg-white"
+              variant="ghost"
+              className="h-7 w-7 p-0 hover:bg-slate-700/50 border-0"
+              aria-label="Copy message"
             >
               {copied ? (
-                <>
-                  <Check className="w-3 h-3 mr-1" />
-                  Copied
-                </>
+                <Check className="w-3 h-3 text-green-400" />
               ) : (
-                <>
-                  <Copy className="w-3 h-3 mr-1" />
-                  Copy
-                </>
+                <Copy className="w-3 h-3 text-slate-400 hover:text-white" />
               )}
             </Button>
           </div>
         )}
 
-        <Markdown content={content} />
+        {/* Message Content */}
+        <div className={cn('prose prose-sm max-w-none', isUser ? 'prose-invert' : 'prose-slate prose-invert')}>
+          <Markdown content={content} />
+        </div>
       </motion.div>
+
+      {/* User Avatar */}
+      {isUser && (
+        <div className="w-8 h-8 rounded-lg bg-gradient-to-r from-purple-400 to-blue-500 flex items-center justify-center flex-shrink-0 mt-1">
+          <User className="w-4 h-4 text-white" />
+        </div>
+      )}
     </div>
   )
 }

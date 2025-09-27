@@ -4,9 +4,6 @@ const isDev = process.env.NODE_ENV === 'development'
 
 const baseConfig = {
   reactStrictMode: true,
-  experimental: {
-    serverActions: true, 
-  },
 }
 
 const nextConfig = withPWA({

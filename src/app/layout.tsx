@@ -1,7 +1,6 @@
 import './globals.css'
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
-import ServiceWorkerProvider from '@/components/ServiceWorkerProvider'
 import { Toaster } from 'sonner'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -9,7 +8,6 @@ const inter = Inter({ subsets: ['latin'] })
 export const metadata: Metadata = {
   title: 'Sidekick',
   description: 'Your AI Sidekick for conversations, code, and productivity.',
-  manifest: '/manifest.webmanifest',
   icons: {
     icon: '/icons/favicon-32x32.png',
     shortcut: '/icons/favicon-16x16.png',
@@ -24,7 +22,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="theme-color" content="#1e1e1e" />
       </head>
       <body className={inter.className}>
-        <ServiceWorkerProvider />
         <Toaster position="top-right" richColors closeButton />
         {children}
       </body>

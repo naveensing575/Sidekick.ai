@@ -1,5 +1,4 @@
 'use client'
-
 import { useState, useRef } from 'react'
 import { addMessage, getMessages } from '@/lib/db'
 import { streamChat } from '@/lib/ai'
@@ -46,7 +45,7 @@ export function useMessageStream(
 
     const existing = await getMessages(targetChatId)
 
-    // 🔑 Rename API first if needed
+    // Rename chat if needed
     const currentChat = chats.find(c => c.id === targetChatId)
     if (currentChat && (currentChat.title === 'Untitled' || !currentChat.title)) {
       try {
@@ -66,7 +65,7 @@ export function useMessageStream(
           }
         }
       } catch (err) {
-        console.error('Rename API error', err)
+        console.error(err)
       } finally {
         setRenamingChatId(null)
       }
@@ -93,30 +92,41 @@ export function useMessageStream(
 
       while (true) {
         if (controller.signal.aborted) break
+
         const { done, value } = await reader.read()
         if (done) break
 
         const chunk = decoder.decode(value, { stream: true })
-        const lines = chunk.split('\n').filter(l => l.startsWith('data: '))
+        const lines = chunk.split('\n')
 
-        for (const l of lines) {
-          const data = l.slice(6).trim()
-          if (!data || data === '[DONE]') continue
+        for (const line of lines) {
+          const trimmedLine = line.trim()
+          if (!trimmedLine) continue
 
-          try {
-            const json = JSON.parse(data)
-            const delta = json.choices?.[0]?.delta?.content
-            if (delta) {
-              fullResponse += delta
-              setLiveMessage(fullResponse)
+          if (trimmedLine.startsWith('data: ')) {
+            const data = trimmedLine.slice(6).trim()
+
+            if (data === '[DONE]') continue
+
+            try {
+              const json = JSON.parse(data)
+              const delta = json.choices?.[0]?.delta?.content
+
+              if (delta) {
+                fullResponse += delta
+                setLiveMessage(fullResponse)
+              }
+            } catch {
+              // Continue processing other lines
             }
-          } catch {
-            // ignore JSON parse errors
           }
         }
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Something went wrong while streaming.')
+      // Only set error if request wasn't manually aborted
+      if (!(err instanceof Error && err.name === 'AbortError')) {
+        setError(err instanceof Error ? err.message : 'Something went wrong while streaming.')
+      }
     } finally {
       if (!controller.signal.aborted && fullResponse.trim()) {
         const clean = sanitizeResponse(fullResponse)
@@ -129,7 +139,10 @@ export function useMessageStream(
   }
 
   const handleAbort = () => {
-    controllerRef.current?.abort()
+    if (controllerRef.current) {
+      setError('')
+      controllerRef.current.abort()
+    }
   }
 
   return {
