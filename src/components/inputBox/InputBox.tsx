@@ -1,5 +1,4 @@
 'use client'
-
 import {
   useState,
   forwardRef,
@@ -9,7 +8,8 @@ import {
 } from 'react'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
-import { Square, SendHorizonal } from 'lucide-react'
+import { Square, Send } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
 import AttachmentButton from './AttachmentButton'
 import AttachmentPreview from './AttachmentPreview'
 
@@ -19,21 +19,22 @@ interface InputBoxProps {
   onAbort?: () => void
   attachments: File[]
   setAttachments: (files: File[]) => void
-  className?: string  
+  className?: string
   placeholder?: string
 }
 
 const InputBox = forwardRef<HTMLTextAreaElement, InputBoxProps>(
-  ({ onSubmit, loading, onAbort, attachments, setAttachments }, ref) => {
+  ({ onSubmit, loading, onAbort, attachments, setAttachments, placeholder = "Type a message..." }, ref) => {
     const [value, setValue] = useState('')
     const inputRef = useRef<HTMLTextAreaElement | null>(null)
+
     useImperativeHandle(ref, () => inputRef.current!)
 
     useEffect(() => {
       const el = inputRef.current
       if (!el) return
       el.style.height = 'auto'
-      el.style.height = `${el.scrollHeight}px`
+      el.style.height = `${Math.min(el.scrollHeight, 160)}px`
     }, [value])
 
     function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -52,65 +53,114 @@ const InputBox = forwardRef<HTMLTextAreaElement, InputBoxProps>(
       }, 0)
     }
 
+    const hasContent = value.trim().length > 0
+
     return (
-      <div className="max-w-3xl mx-auto w-full px-4">
-        <div className="flex flex-col gap-2 bg-slate-800 rounded-xl px-3 py-2 shadow-sm w-full">
-          {attachments.length > 0 && (
-            <div className="border-b border-slate-700 pb-2 mb-2">
-              <AttachmentPreview
-                files={attachments}
-                onRemove={(index) =>
-                  setAttachments(attachments.filter((_, i) => i !== index))
+      <div className="max-w-4xl mx-auto w-full px-6">
+        <motion.div
+          className="flex flex-col gap-3 bg-slate-800/70 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-4 shadow-lg"
+          layout
+        >
+          {/* Attachment Preview */}
+          <AnimatePresence>
+            {attachments.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="border-b border-slate-700/50 pb-3"
+              >
+                <AttachmentPreview
+                  files={attachments}
+                  onRemove={(index) =>
+                    setAttachments(attachments.filter((_, i) => i !== index))
+                  }
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Input Row */}
+          <div className="flex items-end gap-3">
+            {/* Attachment Button */}
+            <div className="flex-shrink-0">
+              <AttachmentButton
+                onSelectFiles={(files) =>
+                  setAttachments([...attachments, ...Array.from(files)])
+                }
+                onSelectMedia={(files) =>
+                  setAttachments([...attachments, ...Array.from(files)])
                 }
               />
             </div>
-          )}
 
-          <div className="flex items-end gap-2">
-            <AttachmentButton
-              onSelectFiles={(files) =>
-                setAttachments([...attachments, ...Array.from(files)])
-              }
-              onSelectMedia={(files) =>
-                setAttachments([...attachments, ...Array.from(files)])
-              }
-            />
+            {/* Text Input */}
+            <div className="flex-1 relative">
+              <Textarea
+                ref={inputRef}
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={placeholder}
+                rows={1}
+                className="resize-none bg-transparent border-0 text-base text-white placeholder-slate-400 focus:outline-none focus:ring-0 p-2 min-h-[2.5rem] max-h-40"
+                style={{
+                  minHeight: '2.5rem',
+                  lineHeight: '1.5'
+                }}
+              />
+            </div>
 
-            <Textarea
-              ref={inputRef}
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Type a message…"
-              rows={1}
-              className="resize-none bg-transparent text-base text-white placeholder-slate-400 no-scrollbar max-h-40 flex-1"
-              style={{ minHeight: '2.5rem' }}
-            />
-
-            {loading ? (
-              <Button
-                type="button"
-                onClick={onAbort}
-                variant="ghost"
-                className="rounded-full p-2 bg-slate-700 hover:bg-slate-600"
-                aria-label="Stop generating"
-              >
-                <Square className="w-4 h-4 text-white" />
-              </Button>
-            ) : (
-              <Button
-                type="button"
-                onClick={submit}
-                disabled={!value.trim() || loading}
-                variant="default"
-                className="rounded-full p-2 bg-slate-700 hover:bg-slate-600"
-                aria-label="Send"
-              >
-                <SendHorizonal className="w-4 h-4 text-white" />
-              </Button>
-            )}
+            {/* Send/Stop Button */}
+            <div className="flex-shrink-0">
+              {loading ? (
+                <Button
+                  type="button"
+                  onClick={onAbort}
+                  variant="destructive"
+                  size="sm"
+                  className="w-9 h-9 rounded-full bg-red-600 hover:bg-red-700 text-white border-0"
+                  aria-label="Stop generating"
+                >
+                  <Square className="w-4 h-4" />
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  onClick={submit}
+                  disabled={!hasContent}
+                  size="sm"
+                  className={`w-9 h-9 rounded-full border-0 transition-all duration-200 ${hasContent
+                      ? 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white'
+                      : 'bg-slate-700/50 text-slate-500 cursor-not-allowed'
+                    }`}
+                  aria-label="Send message"
+                >
+                  <Send className="w-4 h-4" />
+                </Button>
+              )}
+            </div>
           </div>
-        </div>
+
+          {/* Footer Text */}
+          <AnimatePresence>
+            {value.trim().length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="flex items-center justify-between text-xs text-slate-500"
+              >
+                <span>Press Enter to send, Shift+Enter for new line</span>
+                <span className={`transition-colors ${value.length > 2000 ? 'text-yellow-500' :
+                    value.length > 4000 ? 'text-red-500' : 'text-slate-500'
+                  }`}>
+                  {value.length}/4000
+                </span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
       </div>
     )
   }
