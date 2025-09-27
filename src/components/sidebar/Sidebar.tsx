@@ -172,7 +172,7 @@ export default function Sidebar({
             values={orderedChats}
             onReorder={async (newOrder) => {
               setOrderedChats(newOrder)
-              await onReorderChats(newOrder)
+              onReorderChats(newOrder)
             }}
             className="space-y-1"
           >

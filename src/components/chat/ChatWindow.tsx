@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { getMessages } from '@/lib/db'
 import Sidebar from '@/components/sidebar/Sidebar'
@@ -17,7 +17,14 @@ import { useDragAndDrop } from '@/hooks/useDragAndDrop'
 import { useAutoScroll } from '@/hooks/useAutoScroll'
 import type { Message } from '@/types/chat'
 
-export default function ChatWindow({ chatId }: { chatId?: string }) {
+interface ChatWindowProps {
+  chatId?: string
+}
+
+const TRANSITION_DURATION = 0.3
+const SIDEBAR_ANIMATION_DURATION = 0.3
+
+export default function ChatWindow({ chatId }: ChatWindowProps) {
   const {
     chats,
     activeChatId,
@@ -50,73 +57,87 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
 
   useAutoScroll(chatRef, [messages, liveMessage, loading])
 
-  // Auto-select latest chat on initial render
+  const currentChatTitle = useMemo(() => {
+    return chats.find((c) => c.id === activeChatId)?.title || 'No Chat Selected'
+  }, [chats, activeChatId])
+
   useEffect(() => {
     if (!chatId && !activeChatId && chats.length > 0) {
-      // Sort chats by latest first and select the most recent one
-      const sortedChats = [...chats].sort((a, b) => {
-        const dateA = new Date(a.updatedAt || a.createdAt || a.id).getTime()
-        const dateB = new Date(b.updatedAt || b.createdAt || b.id).getTime()
-        return dateB - dateA
+      const latestChat = chats.reduce((latest, chat) => {
+        const latestTime = new Date(latest.updatedAt || latest.createdAt || latest.id).getTime()
+        const chatTime = new Date(chat.updatedAt || chat.createdAt || chat.id).getTime()
+        return chatTime > latestTime ? chat : latest
       })
-      setActiveChatId(sortedChats[0].id)
+      setActiveChatId(latestChat.id)
     }
-  }, [chats, activeChatId, chatId, setActiveChatId])
+  }, [chats.length, activeChatId, chatId, setActiveChatId, chats])
 
   useEffect(() => {
-    inputRef.current?.focus()
+    const timeoutId = setTimeout(() => {
+      inputRef.current?.focus()
+    }, 100)
+
+    return () => clearTimeout(timeoutId)
   }, [activeChatId])
 
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      // Ignore modifier key combinations
-      if (e.metaKey || e.ctrlKey || e.altKey) return
+  const handleGlobalKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.metaKey || e.ctrlKey || e.altKey) return
+    if (e.key.length !== 1) return
 
-      // Only handle single character keys
-      if (e.key.length !== 1) return
-
-      // Check if the active element is an input, textarea, or contenteditable
-      const activeElement = document.activeElement as HTMLElement
-      if (
-        activeElement &&
-        (activeElement.tagName === 'INPUT' ||
-          activeElement.tagName === 'TEXTAREA' ||
-          activeElement.contentEditable === 'true' ||
-          activeElement.closest('[contenteditable="true"]'))
-      ) {
-        return // Don't interfere with existing input elements
-      }
-
-      // Only proceed if the main chat input is not focused
-      if (document.activeElement !== inputRef.current) {
-        e.preventDefault()
-        inputRef.current?.focus()
-        const textarea = inputRef.current
-        if (textarea) {
-          const start = textarea.selectionStart || 0
-          const end = textarea.selectionEnd || 0
-          const value = textarea.value
-          textarea.value = value.slice(0, start) + e.key + value.slice(end)
-          textarea.setSelectionRange(start + 1, start + 1)
-          textarea.dispatchEvent(new Event('input', { bubbles: true }))
-        }
-      }
+    const activeElement = document.activeElement as HTMLElement
+    if (
+      activeElement &&
+      (activeElement.tagName === 'INPUT' ||
+        activeElement.tagName === 'TEXTAREA' ||
+        activeElement.contentEditable === 'true' ||
+        activeElement.closest('[contenteditable="true"]'))
+    ) {
+      return
     }
 
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
+    if (document.activeElement !== inputRef.current) {
+      e.preventDefault()
+      const textarea = inputRef.current
+      if (textarea) {
+        textarea.focus()
+        const start = textarea.selectionStart || 0
+        const end = textarea.selectionEnd || 0
+        const value = textarea.value
+        textarea.value = value.slice(0, start) + e.key + value.slice(end)
+        textarea.setSelectionRange(start + 1, start + 1)
+        textarea.dispatchEvent(new Event('input', { bubbles: true }))
+      }
+    }
   }, [])
 
-  async function handleHeroSubmit(text: string) {
+  useEffect(() => {
+    window.addEventListener('keydown', handleGlobalKeyDown)
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown)
+  }, [handleGlobalKeyDown])
+
+  const handleHeroSubmit = useCallback(async (text: string) => {
     const newChat = await handleNewChat()
     setActiveChatId(newChat.id)
     await handleSend(text, newChat.id)
-  }
+  }, [handleNewChat, setActiveChatId, handleSend])
 
-  async function handleUserSubmit(text: string) {
+  const handleUserSubmit = useCallback(async (text: string) => {
     if (!activeChatId) return
     await handleSend(text, activeChatId)
-  }
+  }, [activeChatId, handleSend])
+
+  const handleSidebarToggle = useCallback(() => {
+    setMobileSidebarOpen(prev => !prev)
+  }, [])
+
+  const handleSidebarClose = useCallback(() => {
+    setMobileSidebarOpen(false)
+  }, [])
+
+  const handleChatSelect = useCallback((id: string) => {
+    setActiveChatId(id)
+    setMobileSidebarOpen(false)
+  }, [setActiveChatId])
 
   return (
     <div
@@ -125,7 +146,6 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-      {/* Drag and Drop Overlay */}
       <AnimatePresence>
         {isDragging && (
           <motion.div
@@ -133,6 +153,7 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
           >
             <motion.div
               initial={{ scale: 0.9 }}
@@ -151,21 +172,19 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
         )}
       </AnimatePresence>
 
-      {/* Desktop Sidebar */}
-      <div className="hidden md:flex">
+      <aside className="hidden md:flex">
         <Sidebar
           chats={chats}
           activeChatId={activeChatId}
           renamingChatId={renamingChatId}
           onNewChat={handleNewChat}
-          onSelectChat={(id) => setActiveChatId(id)}
+          onSelectChat={setActiveChatId}
           onDeleteChat={handleDeleteChat}
           onRenameChat={handleRenameChat}
           onReorderChats={reorderChats}
         />
-      </div>
+      </aside>
 
-      {/* Mobile Sidebar Overlay */}
       <AnimatePresence>
         {mobileSidebarOpen && (
           <motion.div
@@ -173,7 +192,8 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={() => setMobileSidebarOpen(false)}
+            transition={{ duration: 0.2 }}
+            onClick={handleSidebarClose}
           >
             <motion.div
               onClick={(e) => e.stopPropagation()}
@@ -181,17 +201,14 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
               initial={{ x: -280 }}
               animate={{ x: 0 }}
               exit={{ x: -280 }}
-              transition={{ duration: 0.3, ease: 'easeInOut' }}
+              transition={{ duration: SIDEBAR_ANIMATION_DURATION, ease: 'easeInOut' }}
             >
               <Sidebar
                 chats={chats}
                 activeChatId={activeChatId}
                 renamingChatId={renamingChatId}
                 onNewChat={handleNewChat}
-                onSelectChat={(id) => {
-                  setActiveChatId(id)
-                  setMobileSidebarOpen(false)
-                }}
+                onSelectChat={handleChatSelect}
                 onDeleteChat={handleDeleteChat}
                 onRenameChat={handleRenameChat}
                 onReorderChats={reorderChats}
@@ -201,27 +218,26 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
         )}
       </AnimatePresence>
 
-      {/* Main Chat Area */}
       <motion.div
         className="flex flex-col flex-1 relative backdrop-blur-sm bg-slate-900/30"
         key={activeChatId}
         initial={{ opacity: 0, x: 20 }}
         animate={{ opacity: 1, x: 0 }}
         exit={{ opacity: 0, x: -20 }}
-        transition={{ duration: 0.3, ease: 'easeOut' }}
+        transition={{ duration: TRANSITION_DURATION, ease: 'easeOut' }}
       >
         <ChatHeader
-          title={chats.find((c) => c.id === activeChatId)?.title || 'No Chat Selected'}
-          onOpenSidebar={() => setMobileSidebarOpen(true)}
+          title={currentChatTitle}
+          onOpenSidebar={handleSidebarToggle}
         />
 
-        {/* Error Alert with Better Styling */}
         <AnimatePresence>
           {error && (
             <motion.div
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.2 }}
               className="mx-4 mt-2"
             >
               <ErrorAlert message={error} />
@@ -229,13 +245,12 @@ export default function ChatWindow({ chatId }: { chatId?: string }) {
           )}
         </AnimatePresence>
 
-        {/* Content Area */}
         {chats.length === 0 ? (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.4 }}
-            className="flex-1 mt-20"
+            className="flex-1 flex items-center justify-center"
           >
             <HeroInput
               onSubmit={handleHeroSubmit}

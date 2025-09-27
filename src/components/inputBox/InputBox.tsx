@@ -61,7 +61,6 @@ const InputBox = forwardRef<HTMLTextAreaElement, InputBoxProps>(
           className="flex flex-col gap-3 bg-slate-800/70 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-4 shadow-lg"
           layout
         >
-          {/* Attachment Preview */}
           <AnimatePresence>
             {attachments.length > 0 && (
               <motion.div
@@ -80,9 +79,7 @@ const InputBox = forwardRef<HTMLTextAreaElement, InputBoxProps>(
             )}
           </AnimatePresence>
 
-          {/* Input Row */}
           <div className="flex items-end gap-3">
-            {/* Attachment Button */}
             <div className="flex-shrink-0">
               <AttachmentButton
                 onSelectFiles={(files) =>
@@ -94,7 +91,6 @@ const InputBox = forwardRef<HTMLTextAreaElement, InputBoxProps>(
               />
             </div>
 
-            {/* Text Input */}
             <div className="flex-1 relative">
               <Textarea
                 ref={inputRef}
@@ -103,15 +99,17 @@ const InputBox = forwardRef<HTMLTextAreaElement, InputBoxProps>(
                 onKeyDown={handleKeyDown}
                 placeholder={placeholder}
                 rows={1}
-                className="resize-none bg-transparent border-0 text-base text-white placeholder-slate-400 focus:outline-none focus:ring-0 p-2 min-h-[2.5rem] max-h-40"
+                className="resize-none bg-transparent border-0 text-base text-white placeholder-slate-400 focus:outline-none focus:ring-0 p-2 min-h-[2.5rem] max-h-40 break-words whitespace-pre-wrap"
                 style={{
                   minHeight: '2.5rem',
-                  lineHeight: '1.5'
+                  lineHeight: '1.5',
+                  wordWrap: 'break-word',
+                  overflowWrap: 'break-word',
+                  wordBreak: 'break-word'
                 }}
               />
             </div>
 
-            {/* Send/Stop Button */}
             <div className="flex-shrink-0">
               {loading ? (
                 <Button
@@ -119,7 +117,7 @@ const InputBox = forwardRef<HTMLTextAreaElement, InputBoxProps>(
                   onClick={onAbort}
                   variant="destructive"
                   size="sm"
-                  className="w-9 h-9 rounded-full bg-red-600 hover:bg-red-700 text-white border-0"
+                  className="w-9 h-9 rounded-full bg-slate-600 hover:bg-slate-700 text-white border-0"
                   aria-label="Stop generating"
                 >
                   <Square className="w-4 h-4" />
@@ -142,7 +140,6 @@ const InputBox = forwardRef<HTMLTextAreaElement, InputBoxProps>(
             </div>
           </div>
 
-          {/* Footer Text */}
           <AnimatePresence>
             {value.trim().length > 0 && (
               <motion.div
