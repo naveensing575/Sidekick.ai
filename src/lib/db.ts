@@ -70,3 +70,18 @@ export async function addMessage(chatId: string, role: Role, content: string) {
   await db.chats.update(chatId, { updatedAt: Date.now() })
   return message
 }
+
+export async function updateMessage(id: string, content: string) {
+  await db.messages.update(id, { content })
+}
+
+export async function deleteMessagesAfter(chatId: string, messageId: string) {
+  const message = await db.messages.get(messageId)
+  if (!message) return
+
+  await db.messages
+    .where('chatId')
+    .equals(chatId)
+    .and(msg => msg.createdAt > message.createdAt)
+    .delete()
+}

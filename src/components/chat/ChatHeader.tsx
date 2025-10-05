@@ -2,6 +2,7 @@
 
 import { Menu } from 'lucide-react'
 import { motion } from 'framer-motion'
+import SettingsDialog from '@/components/settings/SettingsDialog'
 
 type ChatHeaderProps = {
   title: string
@@ -23,7 +24,9 @@ export default function ChatHeader({ title, onOpenSidebar }: ChatHeaderProps) {
       <span className="flex-1 text-center truncate">
         {title || 'No Chat Selected'}
       </span>
-      <span className="w-6 h-6 md:hidden" />
+      <div className="flex items-center gap-2">
+        <SettingsDialog />
+      </div>
     </motion.div>
   )
 }

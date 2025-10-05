@@ -11,6 +11,8 @@ type ChatMessagesProps = {
   liveMessage: string | null
   loading: boolean
   containerRef: React.RefObject<HTMLDivElement | null>
+  onEdit?: (messageId: string, newContent: string) => void
+  onRegenerate?: (messageId: string) => void
 }
 
 export default function ChatMessages({
@@ -19,6 +21,8 @@ export default function ChatMessages({
   liveMessage,
   loading,
   containerRef,
+  onEdit,
+  onRegenerate,
 }: ChatMessagesProps) {
   return (
     <main
@@ -30,27 +34,12 @@ export default function ChatMessages({
           {activeChatId ? (
             messages.length > 0 || liveMessage ? (
               <div className="w-full flex flex-col gap-2">
-                {messages.map((msg, i) => (
-                  <motion.div
-                    key={msg.id || i}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.25 }}
-                  >
-                    <MessageList messages={[msg]} liveMessage={null} />
-                  </motion.div>
-                ))}
-
-                {liveMessage && (
-                  <motion.div
-                    key="liveMessage"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.25 }}
-                  >
-                    <MessageList messages={[]} liveMessage={liveMessage} />
-                  </motion.div>
-                )}
+                <MessageList
+                  messages={messages}
+                  liveMessage={liveMessage}
+                  onEdit={onEdit}
+                  onRegenerate={onRegenerate}
+                />
 
                 {loading && (
                   <motion.div

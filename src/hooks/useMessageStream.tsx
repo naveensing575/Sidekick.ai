@@ -1,8 +1,9 @@
 'use client'
 import { useState, useRef } from 'react'
-import { addMessage, getMessages } from '@/lib/db'
+import { addMessage, getMessages, updateMessage, deleteMessagesAfter } from '@/lib/db'
 import { streamChat } from '@/lib/ai'
 import type { Message, Role } from '@/types/chat'
+import { useSettingsStore } from '@/store/settingsStore'
 
 const DEFAULT_SYSTEM_PROMPT = `
 You are Sidekick, a helpful AI assistant.
@@ -25,6 +26,7 @@ export function useMessageStream(
   const [loading, setLoading] = useState(false)
   const [liveMessage, setLiveMessage] = useState<string | null>(null)
   const [error, setError] = useState<string>('')
+  const { model, temperature, maxTokens } = useSettingsStore()
 
   const controllerRef = useRef<AbortController | null>(null)
 
@@ -87,7 +89,7 @@ export function useMessageStream(
     let fullResponse = ''
 
     try {
-      const reader = await streamChat(chatMessages, controller.signal)
+      const reader = await streamChat(chatMessages, controller.signal, { model, temperature, maxTokens })
       const decoder = new TextDecoder()
 
       while (true) {
@@ -145,12 +147,154 @@ export function useMessageStream(
     }
   }
 
+  const handleEditMessage = async (messageId: string, newContent: string) => {
+    if (!activeChatId) return
+
+    try {
+      // Update the message in the database
+      await updateMessage(messageId, newContent)
+
+      // Delete all messages after this one
+      await deleteMessagesAfter(activeChatId, messageId)
+
+      // Get all messages including the updated one
+      const allMessages = await getMessages(activeChatId)
+
+      setError('')
+      setLoading(true)
+      setLiveMessage(null)
+
+      // Rename chat if needed
+      const currentChat = chats.find(c => c.id === activeChatId)
+      if (currentChat && (currentChat.title === 'Untitled' || !currentChat.title)) {
+        try {
+          setRenamingChatId(activeChatId)
+          const res = await fetch('/api/rename-chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chatId: activeChatId,
+              messages: allMessages,
+            }),
+          })
+          if (res.ok) {
+            const data = await res.json()
+            if (data.title) {
+              await updateChatTitle(activeChatId, data.title)
+            }
+          }
+        } catch (err) {
+          console.error(err)
+        } finally {
+          setRenamingChatId(null)
+        }
+      }
+
+      const systemMessage: Message = {
+        id: 'system',
+        role: 'system' as Role,
+        content: DEFAULT_SYSTEM_PROMPT,
+      }
+
+      const chatMessages = [systemMessage, ...allMessages].map(({ role, content }) => ({
+        role,
+        content,
+      }))
+
+      const controller = new AbortController()
+      controllerRef.current = controller
+      let fullResponse = ''
+
+      try {
+        const reader = await streamChat(chatMessages, controller.signal, { model, temperature, maxTokens })
+        const decoder = new TextDecoder()
+
+        while (true) {
+          if (controller.signal.aborted) break
+
+          const { done, value } = await reader.read()
+          if (done) break
+
+          const chunk = decoder.decode(value, { stream: true })
+          const lines = chunk.split('\n')
+
+          for (const line of lines) {
+            const trimmedLine = line.trim()
+            if (!trimmedLine) continue
+
+            if (trimmedLine.startsWith('data: ')) {
+              const data = trimmedLine.slice(6).trim()
+
+              if (data === '[DONE]') continue
+
+              try {
+                const json = JSON.parse(data)
+                const delta = json.choices?.[0]?.delta?.content
+
+                if (delta) {
+                  fullResponse += delta
+                  setLiveMessage(fullResponse)
+                }
+              } catch {
+                // Continue processing other lines
+              }
+            }
+          }
+        }
+      } catch (err: unknown) {
+        // Only set error if request wasn't manually aborted
+        if (!(err instanceof Error && err.name === 'AbortError')) {
+          setError(err instanceof Error ? err.message : 'Something went wrong while streaming.')
+        }
+      } finally {
+        if (!controller.signal.aborted && fullResponse.trim()) {
+          const clean = sanitizeResponse(fullResponse)
+          await addMessage(activeChatId, 'assistant', clean)
+          setLiveMessage(null)
+        }
+        setLoading(false)
+        controllerRef.current = null
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to edit message')
+    }
+  }
+
+  const handleRegenerateResponse = async (assistantMessageId: string) => {
+    if (!activeChatId) return
+
+    try {
+      // Get all messages
+      const allMessages = await getMessages(activeChatId)
+
+      // Find the assistant message
+      const assistantMsg = allMessages.find(m => m.id === assistantMessageId)
+      if (!assistantMsg) return
+
+      // Find the user message right before this assistant message
+      const msgIndex = allMessages.findIndex(m => m.id === assistantMessageId)
+      const userMessage = allMessages.slice(0, msgIndex).reverse().find(m => m.role === 'user')
+
+      if (!userMessage) return
+
+      // Delete the assistant message and any messages after it
+      await deleteMessagesAfter(activeChatId, userMessage.id)
+
+      // Regenerate the response
+      await handleSend(userMessage.content, activeChatId)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to regenerate response')
+    }
+  }
+
   return {
     loading,
     liveMessage,
     error,
     handleSend,
     handleAbort,
+    handleEditMessage,
+    handleRegenerateResponse,
     setError,
   }
 }

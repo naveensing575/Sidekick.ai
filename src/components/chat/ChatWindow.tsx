@@ -43,7 +43,7 @@ export default function ChatWindow({ chatId }: ChatWindowProps) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const [attachments, setAttachments] = useState<File[]>([])
 
-  const { loading, liveMessage, error, handleSend, handleAbort } =
+  const { loading, liveMessage, error, handleSend, handleAbort, handleEditMessage, handleRegenerateResponse } =
     useMessageStream(activeChatId, chats, setRenamingChatId, updateChatTitle)
 
   const messages: Message[] =
@@ -269,6 +269,8 @@ export default function ChatWindow({ chatId }: ChatWindowProps) {
               messages={messages}
               liveMessage={liveMessage}
               loading={loading}
+              onEdit={handleEditMessage}
+              onRegenerate={handleRegenerateResponse}
             />
             <ScrollButtons containerRef={chatRef} isStreaming={loading} />
             <ChatFooter

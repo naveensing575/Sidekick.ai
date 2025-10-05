@@ -8,13 +8,15 @@ import {
 } from 'react'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
-import { Square, Send } from 'lucide-react'
+import { Square, Send, Loader2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import AttachmentButton from './AttachmentButton'
 import AttachmentPreview from './AttachmentPreview'
+import { extractTextFromImage } from '@/lib/ocr'
+import { toast } from 'sonner'
 
 interface InputBoxProps {
-  onSubmit: (text: string) => void
+  onSubmit: (text: string, extractedText?: string) => void
   loading: boolean
   onAbort?: () => void
   attachments: File[]
@@ -26,6 +28,7 @@ interface InputBoxProps {
 const InputBox = forwardRef<HTMLTextAreaElement, InputBoxProps>(
   ({ onSubmit, loading, onAbort, attachments, setAttachments, placeholder = "Type a message..." }, ref) => {
     const [value, setValue] = useState('')
+    const [ocrProcessing, setOcrProcessing] = useState(false)
     const inputRef = useRef<HTMLTextAreaElement | null>(null)
 
     useImperativeHandle(ref, () => inputRef.current!)
@@ -40,20 +43,58 @@ const InputBox = forwardRef<HTMLTextAreaElement, InputBoxProps>(
     function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault()
-        if (!loading) submit()
+        if (!loading && !ocrProcessing) submit()
       }
     }
 
-    function submit() {
-      if (!value.trim() || loading) return
-      onSubmit(value)
+    async function submit() {
+      if ((!value.trim() && attachments.length === 0) || loading || ocrProcessing) return
+
+      // Extract text from images if any
+      let extractedText = ''
+      const imageFiles = attachments.filter(f => f.type.startsWith('image/'))
+
+      if (imageFiles.length > 0) {
+        setOcrProcessing(true)
+        toast.info(`Extracting text from ${imageFiles.length} image(s)...`)
+
+        try {
+          const results = await Promise.all(
+            imageFiles.map(async (file, i) => {
+              const result = await extractTextFromImage(file)
+              return result.text ? `[Image ${i + 1}]:\n${result.text}` : ''
+            })
+          )
+          extractedText = results.filter(Boolean).join('\n\n')
+
+          if (extractedText) {
+            toast.success('Text extracted successfully!')
+          } else {
+            toast.warning('No text found in images')
+          }
+        } catch (error) {
+          toast.error('Failed to extract text from images')
+          console.error('OCR Error:', error)
+        } finally {
+          setOcrProcessing(false)
+        }
+      }
+
+      const finalMessage = extractedText
+        ? value.trim()
+          ? `${value.trim()}\n\n${extractedText}`
+          : extractedText
+        : value.trim()
+
+      onSubmit(finalMessage, extractedText)
       setValue('')
+      setAttachments([])
       setTimeout(() => {
         inputRef.current?.focus()
       }, 0)
     }
 
-    const hasContent = value.trim().length > 0
+    const hasContent = value.trim().length > 0 || attachments.length > 0
 
     return (
       <div className="max-w-4xl mx-auto w-full px-6">
@@ -121,6 +162,16 @@ const InputBox = forwardRef<HTMLTextAreaElement, InputBoxProps>(
                   aria-label="Stop generating"
                 >
                   <Square className="w-4 h-4" />
+                </Button>
+              ) : ocrProcessing ? (
+                <Button
+                  type="button"
+                  disabled
+                  size="sm"
+                  className="w-9 h-9 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 text-white border-0"
+                  aria-label="Processing OCR"
+                >
+                  <Loader2 className="w-4 h-4 animate-spin" />
                 </Button>
               ) : (
                 <Button
