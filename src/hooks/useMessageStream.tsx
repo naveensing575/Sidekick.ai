@@ -3,6 +3,7 @@ import { useState, useRef } from 'react'
 import { addMessage, getMessages, updateMessage, deleteMessagesAfter } from '@/lib/db'
 import { streamChat } from '@/lib/ai'
 import type { Message, Role } from '@/types/chat'
+import { useSettingsStore } from '@/store/settingsStore'
 
 const DEFAULT_SYSTEM_PROMPT = `
 You are Sidekick, a helpful AI assistant.
@@ -25,6 +26,7 @@ export function useMessageStream(
   const [loading, setLoading] = useState(false)
   const [liveMessage, setLiveMessage] = useState<string | null>(null)
   const [error, setError] = useState<string>('')
+  const { model, temperature, maxTokens } = useSettingsStore()
 
   const controllerRef = useRef<AbortController | null>(null)
 
@@ -87,7 +89,7 @@ export function useMessageStream(
     let fullResponse = ''
 
     try {
-      const reader = await streamChat(chatMessages, controller.signal)
+      const reader = await streamChat(chatMessages, controller.signal, { model, temperature, maxTokens })
       const decoder = new TextDecoder()
 
       while (true) {
@@ -204,7 +206,7 @@ export function useMessageStream(
       let fullResponse = ''
 
       try {
-        const reader = await streamChat(chatMessages, controller.signal)
+        const reader = await streamChat(chatMessages, controller.signal, { model, temperature, maxTokens })
         const decoder = new TextDecoder()
 
         while (true) {
