@@ -15,7 +15,24 @@ export async function POST(req: NextRequest) {
     return new Response('No API key found', { status: 500 });
   }
 
-  if (!Array.isArray(messages) || !messages.every(m => m.role && m.content)) {
+  // Input validation with size limits
+  const MAX_MESSAGES = 100;
+  const MAX_CONTENT_LENGTH = 10000;
+  const VALID_ROLES = ['user', 'assistant', 'system'];
+
+  if (!Array.isArray(messages) || messages.length === 0 || messages.length > MAX_MESSAGES) {
+    return new Response('Invalid messages array', { status: 400 });
+  }
+
+  const isValid = messages.every(m =>
+    m.role &&
+    VALID_ROLES.includes(m.role) &&
+    typeof m.content === 'string' &&
+    m.content.length > 0 &&
+    m.content.length <= MAX_CONTENT_LENGTH
+  );
+
+  if (!isValid) {
     return new Response('Malformed messages', { status: 400 });
   }
 
@@ -25,7 +42,7 @@ export async function POST(req: NextRequest) {
       headers: {
         Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://sidekick-ai-five.vercel.app',
+        'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
         'X-Title': 'Sidekick AI',
       },
       body: JSON.stringify({
@@ -54,8 +71,8 @@ export async function POST(req: NextRequest) {
       },
     });
     
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } catch (error: any) {
-    return new Response(`Network error: ${error.message}`, { status: 500 });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    return new Response(`Network error: ${message}`, { status: 500 });
   }
 }
